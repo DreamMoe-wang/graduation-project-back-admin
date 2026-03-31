@@ -1,7 +1,6 @@
 package com.example.admin.common.assembler;
 
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.admin.entity.Role;
 import com.example.admin.entity.User;
 import com.example.admin.entity.UserRole;
@@ -63,15 +62,13 @@ public class UserProfileAssembler {
     }
 
     private List<Role> loadRoles(Long userId) {
-        LambdaQueryWrapper<UserRole> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(UserRole::getUserId, userId);
-        List<UserRole> userRoles = userRoleMapper.selectList(wrapper);
+        List<UserRole> userRoles = userRoleMapper.selectByUserId(userId);
         if (userRoles.isEmpty()) {
             return Collections.emptyList();
         }
         List<Long> roleIds = userRoles.stream()
                 .map(UserRole::getRoleId)
                 .collect(Collectors.toList());
-        return roleMapper.selectBatchIds(roleIds);
+        return roleMapper.selectByIds(roleIds);
     }
 }

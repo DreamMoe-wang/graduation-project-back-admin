@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.admin.mapper.TradeOrderMapper">
+
+    <resultMap id="TradeOrderResultMap" type="com.example.admin.entity.TradeOrder">
+        <id column="id" property="id"/>
+        <result column="order_no" property="orderNo"/>
+        <result column="post_id" property="postId"/>
+        <result column="publisher_id" property="publisherId"/>
+        <result column="receiver_id" property="receiverId"/>
+        <result column="amount" property="amount"/>
+        <result column="status" property="status"/>
+        <result column="remark" property="remark"/>
+        <result column="confirm_time" property="confirmTime"/>
+        <result column="finish_time" property="finishTime"/>
+        <result column="cancel_time" property="cancelTime"/>
+        <result column="cancel_reason" property="cancelReason"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <sql id="AccessibleConditions">
+        1 = 1
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+        <if test="!admin">
+            AND (publisher_id = #{currentUserId} OR receiver_id = #{currentUserId})
+        </if>
+    </sql>
+
+    <select id="selectById" resultMap="TradeOrderResultMap">
+        SELECT id, order_no, post_id, publisher_id, receiver_id, amount, status, remark,
+               confirm_time, finish_time, cancel_time, cancel_reason, create_time, update_time
+        FROM trade_order
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectLatestByPostId" resultMap="TradeOrderResultMap">
+        SELECT id, order_no, post_id, publisher_id, receiver_id, amount, status, remark,
+               confirm_time, finish_time, cancel_time, cancel_reason, create_time, update_time
+        FROM trade_order
+        WHERE post_id = #{postId}
+        ORDER BY create_time DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectPage" resultMap="TradeOrderResultMap">
+        SELECT id, order_no, post_id, publisher_id, receiver_id, amount, status, remark,
+               confirm_time, finish_time, cancel_time, cancel_reason, create_time, update_time
+        FROM trade_order
+        WHERE <include refid="AccessibleConditions"/>
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(1)
+        FROM trade_order
+        WHERE <include refid="AccessibleConditions"/>
+    </select>
+
+    <select id="countAll" resultType="long">
+        SELECT COUNT(1)
+        FROM trade_order
+    </select>
+
+    <select id="sumCompletedAmount" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(amount), 0)
+        FROM trade_order
+        WHERE status = 2
+    </select>
+
+    <update id="updateTradeOrder" parameterType="com.example.admin.entity.TradeOrder">
+        UPDATE trade_order
+        SET order_no = #{orderNo},
+            post_id = #{postId},
+            publisher_id = #{publisherId},
+            receiver_id = #{receiverId},
+            amount = #{amount},
+            status = #{status},
+            remark = #{remark},
+            confirm_time = #{confirmTime},
+            finish_time = #{finishTime},
+            cancel_time = #{cancelTime},
+            cancel_reason = #{cancelReason},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>

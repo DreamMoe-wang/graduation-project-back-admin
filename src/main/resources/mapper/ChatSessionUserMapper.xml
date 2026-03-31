@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.admin.mapper.ChatSessionUserMapper">
+
+    <resultMap id="ChatSessionUserResultMap" type="com.example.admin.entity.ChatSessionUser">
+        <id column="id" property="id"/>
+        <result column="session_id" property="sessionId"/>
+        <result column="user_id" property="userId"/>
+        <result column="last_read_message_id" property="lastReadMessageId"/>
+        <result column="last_read_time" property="lastReadTime"/>
+        <result column="unread_count" property="unreadCount"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <select id="selectByUserId" resultMap="ChatSessionUserResultMap">
+        SELECT id, session_id, user_id, last_read_message_id, last_read_time, unread_count, create_time
+        FROM chat_session_user
+        WHERE user_id = #{userId}
+        ORDER BY id ASC
+    </select>
+
+    <select id="selectBySessionId" resultMap="ChatSessionUserResultMap">
+        SELECT id, session_id, user_id, last_read_message_id, last_read_time, unread_count, create_time
+        FROM chat_session_user
+        WHERE session_id = #{sessionId}
+        ORDER BY id ASC
+    </select>
+
+    <select id="selectBySessionIdAndUserId" resultMap="ChatSessionUserResultMap">
+        SELECT id, session_id, user_id, last_read_message_id, last_read_time, unread_count, create_time
+        FROM chat_session_user
+        WHERE session_id = #{sessionId}
+          AND user_id = #{userId}
+        LIMIT 1
+    </select>
+
+    <select id="selectOtherMember" resultMap="ChatSessionUserResultMap">
+        SELECT id, session_id, user_id, last_read_message_id, last_read_time, unread_count, create_time
+        FROM chat_session_user
+        WHERE session_id = #{sessionId}
+          AND user_id != #{userId}
+        ORDER BY id ASC
+        LIMIT 1
+    </select>
+
+    <update id="updateChatSessionUser" parameterType="com.example.admin.entity.ChatSessionUser">
+        UPDATE chat_session_user
+        SET session_id = #{sessionId},
+            user_id = #{userId},
+            last_read_message_id = #{lastReadMessageId},
+            last_read_time = #{lastReadTime},
+            unread_count = #{unreadCount}
+        WHERE id = #{id}
+    </update>
+
+</mapper>

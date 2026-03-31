@@ -1,8 +1,6 @@
 package com.example.admin.service.impl;
 
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.admin.common.PageResult;
 import com.example.admin.common.assembler.UserProfileAssembler;
 import com.example.admin.common.event.EventPublisher;
@@ -26,9 +24,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
@@ -62,38 +58,40 @@ public class TradeServiceImpl implements TradeService {
 
     @Override
     public PageResult<List<TradeVO>> getPublishPage(TradeQueryDTO queryDTO) {
+        TradeQueryDTO normalizedQuery = normalizeTradeQuery(queryDTO);
         Long currentUserId = currentUserId();
         boolean admin = isAdmin();
-
-        LambdaQueryWrapper<TradePost> wrapper = buildTradePostWrapper(queryDTO);
-        if (!admin) {
-            wrapper.eq(TradePost::getPublisherId, currentUserId);
-        }
-
-        Page<TradePost> page = executeTradePostPage(queryDTO, wrapper);
-        List<TradeVO> records = page.getRecords().stream()
+        long total = tradePostMapper.countPage(normalizedQuery, currentUserId, !admin, false);
+        List<TradeVO> records = tradePostMapper.selectPage(
+                        normalizedQuery,
+                        currentUserId,
+                        !admin,
+                        false,
+                        offset(normalizedQuery.getPageNum(), normalizedQuery.getPageSize()),
+                        pageSize(normalizedQuery.getPageSize()))
+                .stream()
                 .map(this::toTradeVO)
                 .collect(Collectors.toList());
-        return PageResult.of(page.getTotal(), records);
+        return PageResult.of(total, records);
     }
 
     @Override
     public PageResult<List<TradeVO>> getTradeListPage(TradeQueryDTO queryDTO) {
+        TradeQueryDTO normalizedQuery = normalizeTradeQuery(queryDTO);
         Long currentUserId = currentUserId();
         boolean admin = isAdmin();
-
-        LambdaQueryWrapper<TradePost> wrapper = buildTradePostWrapper(queryDTO);
-        if (!admin) {
-            wrapper.and(item -> item.eq(TradePost::getStatus, 3)
-                    .or()
-                    .eq(TradePost::getPublisherId, currentUserId));
-        }
-
-        Page<TradePost> page = executeTradePostPage(queryDTO, wrapper);
-        List<TradeVO> records = page.getRecords().stream()
+        long total = tradePostMapper.countPage(normalizedQuery, currentUserId, false, !admin);
+        List<TradeVO> records = tradePostMapper.selectPage(
+                        normalizedQuery,
+                        currentUserId,
+                        false,
+                        !admin,
+                        offset(normalizedQuery.getPageNum(), normalizedQuery.getPageSize()),
+                        pageSize(normalizedQuery.getPageSize()))
+                .stream()
                 .map(this::toTradeVO)
                 .collect(Collectors.toList());
-        return PageResult.of(page.getTotal(), records);
+        return PageResult.of(total, records);
     }
 
     @Override
@@ -111,12 +109,13 @@ public class TradeServiceImpl implements TradeService {
         tradePost.setPostNo(generatePostNo());
         tradePost.setPublisherId(currentUserId);
         tradePost.setPostType(1);
+        tradePost.setDeleted(0);
         fillTradePost(tradePost, tradeSaveDTO);
         Integer status = parseTradeStatus(tradeSaveDTO.getStatus());
         tradePost.setStatus(status == null ? 0 : status);
         applyPostStatusTime(tradePost, null);
 
-        boolean success = tradePostMapper.insert(tradePost) > 0;
+        boolean success = tradePostMapper.insertTradePost(tradePost) > 0;
         if (success) {
             eventPublisher.publish("trade.post.created", tradePost.getPostNo());
         }
@@ -134,7 +133,7 @@ public class TradeServiceImpl implements TradeService {
         tradePost.setStatus(status == null ? tradePost.getStatus() : status);
         applyPostStatusTime(tradePost, oldStatus);
 
-        boolean success = tradePostMapper.updateById(tradePost) > 0;
+        boolean success = tradePostMapper.updateTradePost(tradePost) > 0;
         if (success) {
             eventPublisher.publish("trade.post.updated", tradePost.getPostNo());
         }
@@ -167,7 +166,7 @@ public class TradeServiceImpl implements TradeService {
         tradePost.setOffShelfTime(null);
 
         saveReviewRecord(id, currentUserId, 1, reviewDTO == null ? null : reviewDTO.getReviewRemark());
-        boolean success = tradePostMapper.updateById(tradePost) > 0;
+        boolean success = tradePostMapper.updateTradePost(tradePost) > 0;
         if (success) {
             eventPublisher.publish("trade.post.approved", tradePost.getPostNo());
         }
@@ -186,7 +185,7 @@ public class TradeServiceImpl implements TradeService {
         tradePost.setReviewRemark(reviewDTO == null ? null : reviewDTO.getReviewRemark());
 
         saveReviewRecord(id, currentUserId, 2, reviewDTO == null ? null : reviewDTO.getReviewRemark());
-        boolean success = tradePostMapper.updateById(tradePost) > 0;
+        boolean success = tradePostMapper.updateTradePost(tradePost) > 0;
         if (success) {
             eventPublisher.publish("trade.post.rejected", tradePost.getPostNo());
         }
@@ -195,26 +194,32 @@ public class TradeServiceImpl implements TradeService {
 
     @Override
     public TradeOrderStatsVO getOrderStats() {
+        Long currentUserId = currentUserId();
+        boolean admin = isAdmin();
         return TradeOrderStatsVO.builder()
-                .totalCount(Math.toIntExact(countAccessibleOrders(null)))
-                .pendingCount(Math.toIntExact(countAccessibleOrders(0)))
-                .progressCount(Math.toIntExact(countAccessibleOrders(1)))
-                .successCount(Math.toIntExact(countAccessibleOrders(2)))
+                .totalCount(Math.toIntExact(tradeOrderMapper.countPage(null, currentUserId, admin)))
+                .pendingCount(Math.toIntExact(tradeOrderMapper.countPage(0, currentUserId, admin)))
+                .progressCount(Math.toIntExact(tradeOrderMapper.countPage(1, currentUserId, admin)))
+                .successCount(Math.toIntExact(tradeOrderMapper.countPage(2, currentUserId, admin)))
                 .build();
     }
 
     @Override
     public PageResult<List<TradeOrderVO>> getOrderPage(Integer pageNum, Integer pageSize, String status) {
-        LambdaQueryWrapper<TradeOrder> wrapper = buildTradeOrderWrapper(parseOrderStatus(status));
-        wrapper.orderByDesc(TradeOrder::getCreateTime);
-
-        Page<TradeOrder> page = new Page<>(pageNum == null || pageNum < 1 ? 1 : pageNum,
-                pageSize == null || pageSize < 1 ? 10 : pageSize);
-        Page<TradeOrder> result = tradeOrderMapper.selectPage(page, wrapper);
-        List<TradeOrderVO> records = result.getRecords().stream()
+        Integer orderStatus = parseOrderStatus(status);
+        Long currentUserId = currentUserId();
+        boolean admin = isAdmin();
+        long total = tradeOrderMapper.countPage(orderStatus, currentUserId, admin);
+        List<TradeOrderVO> records = tradeOrderMapper.selectPage(
+                        orderStatus,
+                        currentUserId,
+                        admin,
+                        offset(pageNum, pageSize),
+                        pageSize(pageSize))
+                .stream()
                 .map(this::toTradeOrderVO)
                 .collect(Collectors.toList());
-        return PageResult.of(result.getTotal(), records);
+        return PageResult.of(total, records);
     }
 
     @Override
@@ -228,7 +233,6 @@ public class TradeServiceImpl implements TradeService {
     public boolean receiveOrder(Long id) {
         Long currentUserId = currentUserId();
         TradeOrder order = getTradeOrderById(id);
-
         if (order.getStatus() != 0) {
             throw new RuntimeException("当前订单状态不允许接单");
         }
@@ -244,7 +248,7 @@ public class TradeServiceImpl implements TradeService {
         order.setReceiverId(currentUserId);
         order.setConfirmTime(LocalDateTime.now());
 
-        boolean success = tradeOrderMapper.updateById(order) > 0;
+        boolean success = tradeOrderMapper.updateTradeOrder(order) > 0;
         if (success) {
             eventPublisher.publish("trade.order.received", order.getOrderNo());
         }
@@ -255,20 +259,19 @@ public class TradeServiceImpl implements TradeService {
     public boolean completeOrder(Long id) {
         TradeOrder order = getTradeOrderById(id);
         assertOrderAccessible(order);
-
         if (order.getStatus() != 1) {
             throw new RuntimeException("只有进行中的订单才能完成");
         }
 
         order.setStatus(2);
         order.setFinishTime(LocalDateTime.now());
-        boolean updated = tradeOrderMapper.updateById(order) > 0;
+        boolean updated = tradeOrderMapper.updateTradeOrder(order) > 0;
 
         TradePost tradePost = tradePostMapper.selectById(order.getPostId());
         if (updated && tradePost != null) {
             tradePost.setStatus(4);
             tradePost.setOffShelfTime(LocalDateTime.now());
-            tradePostMapper.updateById(tradePost);
+            tradePostMapper.updateTradePost(tradePost);
         }
         if (updated) {
             eventPublisher.publish("trade.order.completed", order.getOrderNo());
@@ -280,7 +283,6 @@ public class TradeServiceImpl implements TradeService {
     public boolean cancelOrder(Long id) {
         TradeOrder order = getTradeOrderById(id);
         assertOrderAccessible(order);
-
         if (order.getStatus() == 2) {
             throw new RuntimeException("已完成订单不能取消");
         }
@@ -291,68 +293,16 @@ public class TradeServiceImpl implements TradeService {
             order.setCancelReason("用户取消订单");
         }
 
-        boolean success = tradeOrderMapper.updateById(order) > 0;
+        boolean success = tradeOrderMapper.updateTradeOrder(order) > 0;
         if (success) {
             eventPublisher.publish("trade.order.cancelled", order.getOrderNo());
         }
         return success;
     }
 
-    private LambdaQueryWrapper<TradePost> buildTradePostWrapper(TradeQueryDTO queryDTO) {
-        LambdaQueryWrapper<TradePost> wrapper = new LambdaQueryWrapper<>();
-        if (StrUtil.isNotBlank(queryDTO.getTitle())) {
-            wrapper.like(TradePost::getTitle, queryDTO.getTitle().trim());
-        }
-
-        Integer tradeStatus = parseTradeStatus(queryDTO.getStatus());
-        if (tradeStatus != null) {
-            wrapper.eq(TradePost::getStatus, tradeStatus);
-        }
-        if (queryDTO.getMinAmount() != null) {
-            wrapper.ge(TradePost::getPrice, queryDTO.getMinAmount());
-        }
-        if (queryDTO.getMaxAmount() != null) {
-            wrapper.le(TradePost::getPrice, queryDTO.getMaxAmount());
-        }
-        if (StrUtil.isNotBlank(queryDTO.getStartDate())) {
-            wrapper.ge(TradePost::getCreateTime, LocalDate.parse(queryDTO.getStartDate()).atStartOfDay());
-        }
-        if (StrUtil.isNotBlank(queryDTO.getEndDate())) {
-            wrapper.le(TradePost::getCreateTime, LocalDate.parse(queryDTO.getEndDate()).atTime(LocalTime.MAX));
-        }
-        wrapper.orderByDesc(TradePost::getCreateTime);
-        return wrapper;
-    }
-
-    private Page<TradePost> executeTradePostPage(TradeQueryDTO queryDTO, LambdaQueryWrapper<TradePost> wrapper) {
-        Page<TradePost> page = new Page<>(queryDTO.getPageNum() == null || queryDTO.getPageNum() < 1 ? 1 : queryDTO.getPageNum(),
-                queryDTO.getPageSize() == null || queryDTO.getPageSize() < 1 ? 10 : queryDTO.getPageSize());
-        return tradePostMapper.selectPage(page, wrapper);
-    }
-
-    private LambdaQueryWrapper<TradeOrder> buildTradeOrderWrapper(Integer status) {
-        Long currentUserId = currentUserId();
-        boolean admin = isAdmin();
-
-        LambdaQueryWrapper<TradeOrder> wrapper = new LambdaQueryWrapper<>();
-        if (status != null) {
-            wrapper.eq(TradeOrder::getStatus, status);
-        }
-        if (!admin) {
-            wrapper.and(item -> item.eq(TradeOrder::getPublisherId, currentUserId)
-                    .or()
-                    .eq(TradeOrder::getReceiverId, currentUserId));
-        }
-        return wrapper;
-    }
-
-    private long countAccessibleOrders(Integer status) {
-        return tradeOrderMapper.selectCount(buildTradeOrderWrapper(status));
-    }
-
     private TradeVO toTradeVO(TradePost tradePost) {
         User publisher = userMapper.selectById(tradePost.getPublisherId());
-        TradeOrder relatedOrder = findLatestOrderByPostId(tradePost.getId());
+        TradeOrder relatedOrder = tradeOrderMapper.selectLatestByPostId(tradePost.getId());
         User receiver = relatedOrder == null || relatedOrder.getReceiverId() == null
                 ? null
                 : userMapper.selectById(relatedOrder.getReceiverId());
@@ -377,12 +327,9 @@ public class TradeServiceImpl implements TradeService {
         TradePost tradePost = tradePostMapper.selectById(order.getPostId());
         User publisher = userMapper.selectById(order.getPublisherId());
         User receiver = order.getReceiverId() == null ? null : userMapper.selectById(order.getReceiverId());
-        String area = "";
-        String title = "";
-        if (tradePost != null) {
-            title = tradePost.getTitle();
-            area = buildArea(tradePost.getCityName(), tradePost.getAreaName());
-        }
+        String title = tradePost == null ? "" : tradePost.getTitle();
+        String area = tradePost == null ? "" : buildArea(tradePost.getCityName(), tradePost.getAreaName());
+
         return TradeOrderVO.builder()
                 .id(order.getId())
                 .orderNo(order.getOrderNo())
@@ -413,14 +360,6 @@ public class TradeServiceImpl implements TradeService {
         return order;
     }
 
-    private TradeOrder findLatestOrderByPostId(Long postId) {
-        LambdaQueryWrapper<TradeOrder> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(TradeOrder::getPostId, postId)
-                .orderByDesc(TradeOrder::getCreateTime)
-                .last("limit 1");
-        return tradeOrderMapper.selectOne(wrapper);
-    }
-
     private void assertTradePostAccessible(TradePost tradePost) {
         if (isAdmin()) {
             return;
@@ -428,10 +367,9 @@ public class TradeServiceImpl implements TradeService {
         Long currentUserId = currentUserId();
         boolean owner = currentUserId.equals(tradePost.getPublisherId());
         boolean published = tradePost.getStatus() != null && tradePost.getStatus() == 3;
-        TradeOrder relatedOrder = findLatestOrderByPostId(tradePost.getId());
+        TradeOrder relatedOrder = tradeOrderMapper.selectLatestByPostId(tradePost.getId());
         boolean participant = relatedOrder != null
-                && (currentUserId.equals(relatedOrder.getPublisherId())
-                || currentUserId.equals(relatedOrder.getReceiverId()));
+                && (currentUserId.equals(relatedOrder.getPublisherId()) || currentUserId.equals(relatedOrder.getReceiverId()));
         if (!owner && !published && !participant) {
             throw new AccessDeniedException("无权查看该交易");
         }
@@ -441,8 +379,7 @@ public class TradeServiceImpl implements TradeService {
         if (isAdmin()) {
             return;
         }
-        Long currentUserId = currentUserId();
-        if (!currentUserId.equals(tradePost.getPublisherId())) {
+        if (!currentUserId().equals(tradePost.getPublisherId())) {
             throw new AccessDeniedException("只能操作自己发布的交易");
         }
     }
@@ -477,7 +414,7 @@ public class TradeServiceImpl implements TradeService {
         review.setReviewerId(reviewerId);
         review.setReviewResult(reviewResult);
         review.setReviewRemark(reviewRemark);
-        tradePostReviewMapper.insert(review);
+        tradePostReviewMapper.insertTradePostReview(review);
     }
 
     private void applyPostStatusTime(TradePost tradePost, Integer oldStatus) {
@@ -490,8 +427,38 @@ public class TradeServiceImpl implements TradeService {
         }
     }
 
+    private TradeQueryDTO normalizeTradeQuery(TradeQueryDTO queryDTO) {
+        TradeQueryDTO normalized = new TradeQueryDTO();
+        if (queryDTO == null) {
+            normalized.setPageNum(1);
+            normalized.setPageSize(10);
+            return normalized;
+        }
+        normalized.setPageNum(queryDTO.getPageNum() == null || queryDTO.getPageNum() < 1 ? 1 : queryDTO.getPageNum());
+        normalized.setPageSize(queryDTO.getPageSize() == null || queryDTO.getPageSize() < 1 ? 10 : queryDTO.getPageSize());
+        normalized.setTitle(queryDTO.getTitle());
+        normalized.setMinAmount(queryDTO.getMinAmount());
+        normalized.setMaxAmount(queryDTO.getMaxAmount());
+        normalized.setStartDate(queryDTO.getStartDate());
+        normalized.setEndDate(queryDTO.getEndDate());
+
+        Integer status = parseTradeStatus(queryDTO.getStatus());
+        normalized.setStatus(status == null ? null : String.valueOf(status));
+        return normalized;
+    }
+
+    private long offset(Integer pageNum, Integer pageSize) {
+        int currentPage = pageNum == null || pageNum < 1 ? 1 : pageNum;
+        int currentSize = pageSize == null || pageSize < 1 ? 10 : pageSize;
+        return (long) (currentPage - 1) * currentSize;
+    }
+
+    private int pageSize(Integer pageSize) {
+        return pageSize == null || pageSize < 1 ? 10 : pageSize;
+    }
+
     private String buildDisplayName(User user) {
-        return StrUtil.isNotBlank(user.getNickname()) ? user.getNickname() : user.getUsername();
+        return user == null ? null : StrUtil.blankToDefault(user.getNickname(), user.getUsername());
     }
 
     private String buildArea(String cityName, String areaName) {

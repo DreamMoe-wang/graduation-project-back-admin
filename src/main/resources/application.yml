@@ -28,7 +28,7 @@ spring:
       max-request-size: 20MB
 
 mybatis-plus:
-  mapper-locations: classpath*:/mapper/**/*.xml
+  mapper-locations: classpath*:/mapper/*.xml
   type-aliases-package: com.example.admin.entity
   configuration:
     map-underscore-to-camel-case: true

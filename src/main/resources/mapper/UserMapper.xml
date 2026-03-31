@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.admin.mapper.UserMapper">
+
+    <resultMap id="UserResultMap" type="com.example.admin.entity.User">
+        <id column="id" property="id"/>
+        <result column="username" property="username"/>
+        <result column="password" property="password"/>
+        <result column="nickname" property="nickname"/>
+        <result column="email" property="email"/>
+        <result column="phone" property="phone"/>
+        <result column="avatar" property="avatar"/>
+        <result column="status" property="status"/>
+        <result column="last_login_time" property="lastLoginTime"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="deleted" property="deleted"/>
+    </resultMap>
+
+    <sql id="BaseColumns">
+        id, username, password, nickname, email, phone, avatar, status,
+        last_login_time, create_time, update_time, deleted
+    </sql>
+
+    <select id="selectById" resultMap="UserResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM sys_user
+        WHERE id = #{id}
+          AND deleted = 0
+    </select>
+
+    <select id="selectByUsername" resultMap="UserResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM sys_user
+        WHERE username = #{username}
+          AND deleted = 0
+        LIMIT 1
+    </select>
+
+    <select id="selectPage" resultMap="UserResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM sys_user
+        WHERE deleted = 0
+        ORDER BY id DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(1)
+        FROM sys_user
+        WHERE deleted = 0
+    </select>
+
+    <select id="selectAll" resultMap="UserResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM sys_user
+        WHERE deleted = 0
+        ORDER BY id DESC
+    </select>
+
+    <select id="countByUsername" resultType="long">
+        SELECT COUNT(1)
+        FROM sys_user
+        WHERE username = #{username}
+          AND deleted = 0
+        <if test="excludeId != null">
+            AND id != #{excludeId}
+        </if>
+    </select>
+
+    <select id="countByEmail" resultType="long">
+        SELECT COUNT(1)
+        FROM sys_user
+        WHERE email = #{email}
+          AND deleted = 0
+        <if test="excludeId != null">
+            AND id != #{excludeId}
+        </if>
+    </select>
+
+    <select id="countActiveUsers" resultType="long">
+        SELECT COUNT(1)
+        FROM sys_user
+        WHERE deleted = 0
+    </select>
+
+    <insert id="insertUser" parameterType="com.example.admin.entity.User" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO sys_user
+        (username, password, nickname, avatar, phone, email, status, last_login_time, deleted, create_time, update_time)
+        VALUES
+        (#{username}, #{password}, #{nickname}, #{avatar}, #{phone}, #{email}, #{status}, #{lastLoginTime}, #{deleted}, NOW(), NOW())
+    </insert>
+
+    <update id="updateUser" parameterType="com.example.admin.entity.User">
+        UPDATE sys_user
+        SET username = #{username},
+            password = #{password},
+            nickname = #{nickname},
+            avatar = #{avatar},
+            phone = #{phone},
+            email = #{email},
+            status = #{status},
+            last_login_time = #{lastLoginTime},
+            update_time = NOW()
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <update id="updateLastLoginTime">
+        UPDATE sys_user
+        SET last_login_time = #{lastLoginTime},
+            update_time = NOW()
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <update id="deleteById">
+        UPDATE sys_user
+        SET deleted = 1,
+            update_time = NOW()
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+</mapper>

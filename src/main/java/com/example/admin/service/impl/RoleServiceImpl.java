@@ -1,12 +1,9 @@
 package com.example.admin.service.impl;
 
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.admin.common.PageResult;
 import com.example.admin.dto.RoleDTO;
 import com.example.admin.entity.Role;
-import com.example.admin.entity.UserRole;
 import com.example.admin.mapper.RoleMapper;
 import com.example.admin.mapper.UserRoleMapper;
 import com.example.admin.service.RoleService;
@@ -30,10 +27,11 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public PageResult<List<Role>> page(Integer pageNum, Integer pageSize) {
-        Page<Role> page = new Page<>(pageNum == null || pageNum < 1 ? 1 : pageNum,
-                pageSize == null || pageSize < 1 ? 10 : pageSize);
-        Page<Role> result = roleMapper.selectPage(page, null);
-        return PageResult.of(result.getTotal(), result.getRecords());
+        int currentPage = pageNum == null || pageNum < 1 ? 1 : pageNum;
+        int size = pageSize == null || pageSize < 1 ? 10 : pageSize;
+        long total = roleMapper.countPage();
+        List<Role> records = roleMapper.selectPage((long) (currentPage - 1) * size, size);
+        return PageResult.of(total, records);
     }
 
     @Override
@@ -50,7 +48,7 @@ public class RoleServiceImpl implements RoleService {
         checkRoleCodeUnique(roleDTO.getRoleCode(), null);
         Role role = new Role();
         BeanUtils.copyProperties(roleDTO, role);
-        return roleMapper.insert(role) > 0;
+        return roleMapper.insertRole(role) > 0;
     }
 
     @Override
@@ -58,15 +56,13 @@ public class RoleServiceImpl implements RoleService {
         Role role = getById(id);
         checkRoleCodeUnique(roleDTO.getRoleCode(), id);
         BeanUtils.copyProperties(roleDTO, role);
-        return roleMapper.updateById(role) > 0;
+        return roleMapper.updateRole(role) > 0;
     }
 
     @Override
     public boolean delete(Long id) {
         getById(id);
-        LambdaQueryWrapper<UserRole> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(UserRole::getRoleId, id);
-        if (userRoleMapper.selectCount(wrapper) > 0) {
+        if (userRoleMapper.countByRoleId(id) > 0) {
             throw new RuntimeException("该角色已绑定用户，不能删除");
         }
         return roleMapper.deleteById(id) > 0;
@@ -76,12 +72,7 @@ public class RoleServiceImpl implements RoleService {
         if (StrUtil.isBlank(roleCode)) {
             return;
         }
-        LambdaQueryWrapper<Role> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Role::getRoleCode, roleCode);
-        if (excludeId != null) {
-            wrapper.ne(Role::getId, excludeId);
-        }
-        if (roleMapper.selectCount(wrapper) > 0) {
+        if (roleMapper.countByRoleCode(roleCode, excludeId) > 0) {
             throw new RuntimeException("角色编码已存在");
         }
     }

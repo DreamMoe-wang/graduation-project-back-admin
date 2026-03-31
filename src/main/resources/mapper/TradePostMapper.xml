@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.admin.mapper.TradePostMapper">
+
+    <resultMap id="TradePostResultMap" type="com.example.admin.entity.TradePost">
+        <id column="id" property="id"/>
+        <result column="post_no" property="postNo"/>
+        <result column="publisher_id" property="publisherId"/>
+        <result column="post_type" property="postType"/>
+        <result column="title" property="title"/>
+        <result column="content" property="content"/>
+        <result column="price" property="price"/>
+        <result column="city_name" property="cityName"/>
+        <result column="area_name" property="areaName"/>
+        <result column="address" property="address"/>
+        <result column="contact_name" property="contactName"/>
+        <result column="contact_phone" property="contactPhone"/>
+        <result column="status" property="status"/>
+        <result column="reviewer_id" property="reviewerId"/>
+        <result column="review_time" property="reviewTime"/>
+        <result column="review_remark" property="reviewRemark"/>
+        <result column="publish_time" property="publishTime"/>
+        <result column="off_shelf_time" property="offShelfTime"/>
+        <result column="deleted" property="deleted"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <sql id="BaseColumns">
+        id, post_no, publisher_id, post_type, title, content, price, city_name, area_name, address,
+        contact_name, contact_phone, status, reviewer_id, review_time, review_remark, publish_time,
+        off_shelf_time, deleted, create_time, update_time
+    </sql>
+
+    <sql id="QueryConditions">
+        deleted = 0
+        <if test="query != null and query.title != null and query.title != ''">
+            AND title LIKE CONCAT('%', #{query.title}, '%')
+        </if>
+        <if test="query != null and query.status != null and query.status != ''">
+            AND status = #{query.status}
+        </if>
+        <if test="query != null and query.minAmount != null">
+            AND price <![CDATA[>=]]> #{query.minAmount}
+        </if>
+        <if test="query != null and query.maxAmount != null">
+            AND price <![CDATA[<=]]> #{query.maxAmount}
+        </if>
+        <if test="query != null and query.startDate != null and query.startDate != ''">
+            AND create_time <![CDATA[>=]]> CONCAT(#{query.startDate}, ' 00:00:00')
+        </if>
+        <if test="query != null and query.endDate != null and query.endDate != ''">
+            AND create_time <![CDATA[<=]]> CONCAT(#{query.endDate}, ' 23:59:59')
+        </if>
+        <if test="onlyOwner">
+            AND publisher_id = #{publisherId}
+        </if>
+        <if test="publicOrOwner">
+            AND (status = 3 OR publisher_id = #{publisherId})
+        </if>
+    </sql>
+
+    <select id="selectById" resultMap="TradePostResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM trade_post
+        WHERE id = #{id}
+          AND deleted = 0
+    </select>
+
+    <select id="selectPage" resultMap="TradePostResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM trade_post
+        WHERE <include refid="QueryConditions"/>
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(1)
+        FROM trade_post
+        WHERE <include refid="QueryConditions"/>
+    </select>
+
+    <select id="countActivePosts" resultType="long">
+        SELECT COUNT(1)
+        FROM trade_post
+        WHERE deleted = 0
+    </select>
+
+    <insert id="insertTradePost" parameterType="com.example.admin.entity.TradePost" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO trade_post
+        (post_no, publisher_id, post_type, title, content, price, city_name, area_name, address,
+         contact_name, contact_phone, status, reviewer_id, review_time, review_remark, publish_time,
+         off_shelf_time, deleted, create_time, update_time)
+        VALUES
+        (#{postNo}, #{publisherId}, #{postType}, #{title}, #{content}, #{price}, #{cityName}, #{areaName}, #{address},
+         #{contactName}, #{contactPhone}, #{status}, #{reviewerId}, #{reviewTime}, #{reviewRemark}, #{publishTime},
+         #{offShelfTime}, #{deleted}, NOW(), NOW())
+    </insert>
+
+    <update id="updateTradePost" parameterType="com.example.admin.entity.TradePost">
+        UPDATE trade_post
+        SET post_no = #{postNo},
+            publisher_id = #{publisherId},
+            post_type = #{postType},
+            title = #{title},
+            content = #{content},
+            price = #{price},
+            city_name = #{cityName},
+            area_name = #{areaName},
+            address = #{address},
+            contact_name = #{contactName},
+            contact_phone = #{contactPhone},
+            status = #{status},
+            reviewer_id = #{reviewerId},
+            review_time = #{reviewTime},
+            review_remark = #{reviewRemark},
+            publish_time = #{publishTime},
+            off_shelf_time = #{offShelfTime},
+            deleted = #{deleted},
+            update_time = NOW()
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <update id="deleteById">
+        UPDATE trade_post
+        SET deleted = 1,
+            update_time = NOW()
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+</mapper>

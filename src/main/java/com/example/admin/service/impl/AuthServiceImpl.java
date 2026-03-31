@@ -1,7 +1,6 @@
 package com.example.admin.service.impl;
 
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.admin.common.assembler.UserProfileAssembler;
 import com.example.admin.dto.LoginDTO;
 import com.example.admin.entity.Role;
@@ -61,14 +60,12 @@ public class AuthServiceImpl implements AuthService {
         SecurityUser securityUser = (SecurityUser) authentication.getPrincipal();
         User user = userMapper.selectById(securityUser.getId());
         user.setLastLoginTime(LocalDateTime.now());
-        userMapper.updateById(user);
+        userMapper.updateLastLoginTime(user.getId(), user.getLastLoginTime());
 
         List<String> authorities = securityUser.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toList());
-        List<Role> roleList = getRoles(user.getId());
-        List<String> roles = roleList.stream().map(Role::getRoleCode).collect(Collectors.toList());
-        List<String> roleNames = roleList.stream().map(Role::getRoleName).collect(Collectors.toList());
+        List<Role> roles = getRoles(user.getId());
 
         return LoginVO.builder()
                 .userId(securityUser.getId())
@@ -81,8 +78,8 @@ public class AuthServiceImpl implements AuthService {
                 .token(jwtTokenService.createToken(securityUser))
                 .tokenType(jwtTokenService.getTokenType())
                 .expiresIn(jwtTokenService.getExpiration())
-                .roles(roles)
-                .roleNames(roleNames)
+                .roles(roles.stream().map(Role::getRoleCode).collect(Collectors.toList()))
+                .roleNames(roles.stream().map(Role::getRoleName).collect(Collectors.toList()))
                 .authorities(authorities)
                 .userInfo(userProfileAssembler.toProfileWithRoles(user))
                 .build();
@@ -90,22 +87,13 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public CurrentUserVO currentUser() {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) {
-            throw new RuntimeException("未获取到当前用户");
-        }
+        Long userId = SecurityUtils.requireCurrentUserId();
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new RuntimeException("当前用户不存在");
         }
 
-        List<Role> roleList = getRoles(userId);
-        List<String> roles = roleList.stream().map(Role::getRoleCode).collect(Collectors.toList());
-        List<String> roleNames = roleList.stream().map(Role::getRoleName).collect(Collectors.toList());
-        List<String> authorities = roleList.stream()
-                .map(Role::getRoleCode)
-                .map(code -> code.startsWith("ROLE_") ? code : "ROLE_" + code)
-                .collect(Collectors.toList());
+        List<Role> roles = getRoles(userId);
         return CurrentUserVO.builder()
                 .userId(user.getId())
                 .username(user.getUsername())
@@ -114,21 +102,22 @@ public class AuthServiceImpl implements AuthService {
                 .avatar(user.getAvatar())
                 .phone(user.getPhone())
                 .email(user.getEmail())
-                .roles(roles)
-                .roleNames(roleNames)
-                .authorities(authorities)
+                .roles(roles.stream().map(Role::getRoleCode).collect(Collectors.toList()))
+                .roleNames(roles.stream().map(Role::getRoleName).collect(Collectors.toList()))
+                .authorities(roles.stream()
+                        .map(Role::getRoleCode)
+                        .map(code -> code.startsWith("ROLE_") ? code : "ROLE_" + code)
+                        .collect(Collectors.toList()))
                 .userInfo(userProfileAssembler.toProfileWithRoles(user))
                 .build();
     }
 
     private List<Role> getRoles(Long userId) {
-        LambdaQueryWrapper<UserRole> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(UserRole::getUserId, userId);
-        List<UserRole> userRoles = userRoleMapper.selectList(wrapper);
+        List<UserRole> userRoles = userRoleMapper.selectByUserId(userId);
         if (userRoles.isEmpty()) {
             return Collections.emptyList();
         }
         List<Long> roleIds = userRoles.stream().map(UserRole::getRoleId).collect(Collectors.toList());
-        return roleMapper.selectBatchIds(roleIds);
+        return roleMapper.selectByIds(roleIds);
     }
 }

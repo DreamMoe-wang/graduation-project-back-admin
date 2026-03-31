@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.admin.mapper.SystemSettingMapper">
+
+    <resultMap id="SystemSettingResultMap" type="com.example.admin.entity.SystemSetting">
+        <id column="id" property="id"/>
+        <result column="platform_name" property="platformName"/>
+        <result column="support_email" property="supportEmail"/>
+        <result column="service_phone" property="servicePhone"/>
+        <result column="allow_register" property="allowRegister"/>
+        <result column="maintenance_mode" property="maintenanceMode"/>
+        <result column="version" property="version"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="selectCurrent" resultMap="SystemSettingResultMap">
+        SELECT id, platform_name, support_email, service_phone, allow_register, maintenance_mode, version, create_time, update_time
+        FROM sys_system_setting
+        ORDER BY id ASC
+        LIMIT 1
+    </select>
+
+    <insert id="insertSystemSetting" parameterType="com.example.admin.entity.SystemSetting" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO sys_system_setting
+        (platform_name, support_email, service_phone, allow_register, maintenance_mode, version, create_time, update_time)
+        VALUES
+        (#{platformName}, #{supportEmail}, #{servicePhone}, #{allowRegister}, #{maintenanceMode}, #{version}, NOW(), NOW())
+    </insert>
+
+    <update id="updateSystemSetting" parameterType="com.example.admin.entity.SystemSetting">
+        UPDATE sys_system_setting
+        SET platform_name = #{platformName},
+            support_email = #{supportEmail},
+            service_phone = #{servicePhone},
+            allow_register = #{allowRegister},
+            maintenance_mode = #{maintenanceMode},
+            version = #{version},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>

@@ -1,7 +1,6 @@
 package com.example.admin.service.impl;
 
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.admin.common.assembler.UserProfileAssembler;
 import com.example.admin.dto.LoginDTO;
@@ -67,22 +66,26 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User getByUsername(String username) {
-        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(User::getUsername, username);
-        return userMapper.selectOne(wrapper);
+        return userMapper.selectByUsername(username);
     }
 
     @Override
     public Page<User> pageList(int pageNum, int pageSize) {
-        Page<User> page = new Page<>(pageNum, pageSize);
-        Page<User> result = userMapper.selectPage(page, null);
-        result.getRecords().forEach(item -> item.setPassword(null));
-        return result;
+        int currentPage = Math.max(pageNum, 1);
+        int size = Math.max(pageSize, 1);
+        long total = userMapper.countPage();
+        List<User> records = userMapper.selectPage((long) (currentPage - 1) * size, size);
+        records.forEach(item -> item.setPassword(null));
+
+        Page<User> page = new Page<>(currentPage, size);
+        page.setTotal(total);
+        page.setRecords(records);
+        return page;
     }
 
     @Override
     public List<User> list() {
-        List<User> list = userMapper.selectList(null);
+        List<User> list = userMapper.selectAll();
         list.forEach(item -> item.setPassword(null));
         return list;
     }
@@ -94,12 +97,12 @@ public class UserServiceImpl implements UserService {
 
         User user = new User();
         BeanUtils.copyProperties(userDTO, user);
-
         user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
         user.setNickname(StrUtil.blankToDefault(userDTO.getNickname(), userDTO.getUsername()));
         user.setStatus(resolveStatus(userDTO.getStatus()));
+        user.setDeleted(0);
 
-        boolean inserted = userMapper.insert(user) > 0;
+        boolean inserted = userMapper.insertUser(user) > 0;
         if (inserted) {
             bindDefaultUserRole(user.getId());
         }
@@ -117,7 +120,6 @@ public class UserServiceImpl implements UserService {
         checkEmailUnique(userDTO.getEmail(), id);
 
         BeanUtils.copyProperties(userDTO, user, "password");
-
         if (StrUtil.isNotBlank(userDTO.getPassword())) {
             user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
         }
@@ -128,7 +130,7 @@ public class UserServiceImpl implements UserService {
             user.setStatus(1);
         }
 
-        return userMapper.updateById(user) > 0;
+        return userMapper.updateUser(user) > 0;
     }
 
     @Override
@@ -145,46 +147,32 @@ public class UserServiceImpl implements UserService {
     }
 
     private void bindDefaultUserRole(Long userId) {
-        LambdaQueryWrapper<Role> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Role::getRoleCode, DEFAULT_USER_ROLE_CODE);
-        Role role = roleMapper.selectOne(wrapper);
+        Role role = roleMapper.selectByRoleCode(DEFAULT_USER_ROLE_CODE);
         if (role == null) {
             throw new RuntimeException("默认用户角色不存在");
         }
-
-        LambdaQueryWrapper<UserRole> relationWrapper = new LambdaQueryWrapper<>();
-        relationWrapper.eq(UserRole::getUserId, userId)
-                .eq(UserRole::getRoleId, role.getId());
-        if (userRoleMapper.selectCount(relationWrapper) > 0) {
+        if (userRoleMapper.countByUserIdAndRoleId(userId, role.getId()) > 0) {
             return;
         }
 
-        UserRole userRole = new UserRole();
-        userRole.setUserId(userId);
-        userRole.setRoleId(role.getId());
-        userRoleMapper.insert(userRole);
+        UserRole relation = new UserRole();
+        relation.setUserId(userId);
+        relation.setRoleId(role.getId());
+        userRoleMapper.insertUserRole(relation);
     }
 
     private int resolveStatus(Integer status) {
         if (status == null) {
             return 1;
         }
-        if (SecurityUtils.isAdmin()) {
-            return status;
-        }
-        return 1;
+        return SecurityUtils.isAdmin() ? status : 1;
     }
 
     private void checkUsernameUnique(String username, Long excludeId) {
         if (StrUtil.isBlank(username)) {
             return;
         }
-        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(User::getUsername, username);
-        if (excludeId != null) {
-            wrapper.ne(User::getId, excludeId);
-        }
-        if (userMapper.selectCount(wrapper) > 0) {
+        if (userMapper.countByUsername(username, excludeId) > 0) {
             throw new RuntimeException("用户名已存在");
         }
     }
@@ -193,12 +181,7 @@ public class UserServiceImpl implements UserService {
         if (StrUtil.isBlank(email)) {
             return;
         }
-        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(User::getEmail, email);
-        if (excludeId != null) {
-            wrapper.ne(User::getId, excludeId);
-        }
-        if (userMapper.selectCount(wrapper) > 0) {
+        if (userMapper.countByEmail(email, excludeId) > 0) {
             throw new RuntimeException("邮箱已存在");
         }
     }

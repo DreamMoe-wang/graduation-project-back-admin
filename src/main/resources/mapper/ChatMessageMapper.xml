@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.admin.mapper.ChatMessageMapper">
+
+    <resultMap id="ChatMessageResultMap" type="com.example.admin.entity.ChatMessage">
+        <id column="id" property="id"/>
+        <result column="session_id" property="sessionId"/>
+        <result column="sender_id" property="senderId"/>
+        <result column="message_type" property="messageType"/>
+        <result column="content" property="content"/>
+        <result column="extra_json" property="extraJson"/>
+        <result column="is_recall" property="isRecall"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <select id="selectById" resultMap="ChatMessageResultMap">
+        SELECT id, session_id, sender_id, message_type, content, extra_json, is_recall, create_time
+        FROM chat_message
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectLatestBySessionId" resultMap="ChatMessageResultMap">
+        SELECT id, session_id, sender_id, message_type, content, extra_json, is_recall, create_time
+        FROM chat_message
+        WHERE session_id = #{sessionId}
+        ORDER BY id DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectBySessionId" resultMap="ChatMessageResultMap">
+        SELECT id, session_id, sender_id, message_type, content, extra_json, is_recall, create_time
+        FROM chat_message
+        WHERE session_id = #{sessionId}
+        ORDER BY create_time ASC, id ASC
+    </select>
+
+    <insert id="insertChatMessage" parameterType="com.example.admin.entity.ChatMessage" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO chat_message
+        (session_id, sender_id, message_type, content, extra_json, is_recall, create_time)
+        VALUES
+        (#{sessionId}, #{senderId}, #{messageType}, #{content}, #{extraJson}, #{isRecall}, NOW())
+    </insert>
+
+</mapper>

@@ -187,6 +187,36 @@ CREATE TABLE IF NOT EXISTS `chat_message` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='聊天消息表';
 
 -- =============================================
+-- 通用模块与系统设置
+-- =============================================
+
+CREATE TABLE IF NOT EXISTS `sys_module_item` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `module_name` VARCHAR(50) NOT NULL COMMENT '模块名称',
+    `name` VARCHAR(100) NOT NULL COMMENT '名称',
+    `code` VARCHAR(100) NOT NULL COMMENT '编码',
+    `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态：0-禁用，1-启用',
+    `description` VARCHAR(255) DEFAULT NULL COMMENT '描述',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_sys_module_item_module_name` (`module_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通用模块数据表';
+
+CREATE TABLE IF NOT EXISTS `sys_system_setting` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `platform_name` VARCHAR(100) NOT NULL COMMENT '平台名称',
+    `support_email` VARCHAR(100) DEFAULT NULL COMMENT '支持邮箱',
+    `service_phone` VARCHAR(50) DEFAULT NULL COMMENT '客服电话',
+    `allow_register` TINYINT NOT NULL DEFAULT 1 COMMENT '是否允许注册：0-否，1-是',
+    `maintenance_mode` TINYINT NOT NULL DEFAULT 0 COMMENT '维护模式：0-关闭，1-开启',
+    `version` VARCHAR(50) DEFAULT NULL COMMENT '版本号',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统设置表';
+
+-- =============================================
 -- 初始化基础数据
 -- =============================================
 
@@ -211,5 +241,17 @@ ON DUPLICATE KEY UPDATE
 INSERT IGNORE INTO `sys_user_role` (`user_id`, `role_id`)
 VALUES
     (1, 1);
+
+INSERT INTO `sys_system_setting`
+(`id`, `platform_name`, `support_email`, `service_phone`, `allow_register`, `maintenance_mode`, `version`)
+VALUES
+    (1, '毕业设计后台管理系统', 'support@example.com', '400-800-1234', 1, 0, '0.1.0')
+ON DUPLICATE KEY UPDATE
+    `platform_name` = VALUES(`platform_name`),
+    `support_email` = VALUES(`support_email`),
+    `service_phone` = VALUES(`service_phone`),
+    `allow_register` = VALUES(`allow_register`),
+    `maintenance_mode` = VALUES(`maintenance_mode`),
+    `version` = VALUES(`version`);
 
 SET FOREIGN_KEY_CHECKS = 1;

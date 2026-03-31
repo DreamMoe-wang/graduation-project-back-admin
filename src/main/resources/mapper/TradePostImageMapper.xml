@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.admin.mapper.TradePostImageMapper">
+
+    <resultMap id="TradePostImageResultMap" type="com.example.admin.entity.TradePostImage">
+        <id column="id" property="id"/>
+        <result column="post_id" property="postId"/>
+        <result column="image_url" property="imageUrl"/>
+        <result column="sort_no" property="sortNo"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <select id="selectByPostId" resultMap="TradePostImageResultMap">
+        SELECT id, post_id, image_url, sort_no, create_time
+        FROM trade_post_image
+        WHERE post_id = #{postId}
+        ORDER BY sort_no ASC, id ASC
+    </select>
+
+    <insert id="insertTradePostImage" parameterType="com.example.admin.entity.TradePostImage" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO trade_post_image
+        (post_id, image_url, sort_no, create_time)
+        VALUES
+        (#{postId}, #{imageUrl}, #{sortNo}, NOW())
+    </insert>
+
+    <delete id="deleteByPostId">
+        DELETE FROM trade_post_image
+        WHERE post_id = #{postId}
+    </delete>
+
+</mapper>
