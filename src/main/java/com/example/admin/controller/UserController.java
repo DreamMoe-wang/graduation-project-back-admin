@@ -8,6 +8,7 @@ import com.example.admin.dto.UserDTO;
 import com.example.admin.entity.User;
 import com.example.admin.service.AuthService;
 import com.example.admin.service.UserService;
+import com.example.admin.vo.UserProfileVO;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,9 +45,8 @@ public class UserController {
      * 根据 ID 查询用户
      */
     @GetMapping("/{id}")
-    public Result<User> getById(@PathVariable Long id) {
-        User user = userService.getById(id);
-        return Result.success(user);
+    public Result<UserProfileVO> getById(@PathVariable Long id) {
+        return Result.success(userService.getProfileById(id));
     }
 
     /**

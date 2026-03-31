@@ -22,7 +22,19 @@ public class CurrentUserVO {
 
     private String nickname;
 
+    private String displayName;
+
     private String avatar;
 
+    private String phone;
+
+    private String email;
+
     private List<String> roles;
+
+    private List<String> roleNames;
+
+    private List<String> authorities;
+
+    private UserProfileVO userInfo;
 }

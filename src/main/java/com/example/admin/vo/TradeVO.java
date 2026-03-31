@@ -28,6 +28,10 @@ public class TradeVO {
 
     private String workerPhone;
 
+    private UserProfileVO publisher;
+
+    private UserProfileVO worker;
+
     private BigDecimal amount;
 
     private String status;

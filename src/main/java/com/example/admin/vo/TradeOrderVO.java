@@ -24,6 +24,10 @@ public class TradeOrderVO {
 
     private String area;
 
+    private UserProfileVO publisher;
+
+    private UserProfileVO receiver;
+
     private String createTime;
 
     private BigDecimal price;

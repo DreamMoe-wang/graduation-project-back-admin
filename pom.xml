@@ -72,6 +72,20 @@
             <artifactId>hutool-all</artifactId>
             <version>5.8.22</version>
         </dependency>
+
+        <!-- Alibaba Cloud OSS -->
+        <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>aliyun-sdk-oss</artifactId>
+            <version>3.17.4</version>
+        </dependency>
+
+        <!-- Configuration Metadata -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
         
         <!-- Spring Boot Test -->
         <dependency>

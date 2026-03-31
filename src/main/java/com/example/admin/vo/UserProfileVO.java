@@ -8,13 +8,15 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * 登录返回信息
+ * 前端展示用用户信息
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class LoginVO {
+public class UserProfileVO {
+
+    private Long id;
 
     private Long userId;
 
@@ -30,17 +32,7 @@ public class LoginVO {
 
     private String email;
 
-    private String token;
-
-    private String tokenType;
-
-    private Long expiresIn;
-
     private List<String> roles;
 
     private List<String> roleNames;
-
-    private List<String> authorities;
-
-    private UserProfileVO userInfo;
 }

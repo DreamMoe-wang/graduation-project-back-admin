@@ -51,10 +51,13 @@ public class SecurityConfig {
                 .and()
                 .authorizeRequests()
                 .antMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .antMatchers(HttpMethod.POST, "/user").permitAll()
                 .antMatchers("/user/login", "/auth/login", "/error").permitAll()
                 .antMatchers("/trade/publish/*/approve", "/trade/publish/*/reject").hasRole("ADMIN")
                 .antMatchers("/role/**", "/menu/**", "/dict/**", "/notice/**", "/log/**", "/setting/**").hasRole("ADMIN")
-                .antMatchers("/user/**").hasRole("ADMIN")
+                .antMatchers(HttpMethod.GET, "/user/page", "/user/list").hasRole("ADMIN")
+                .antMatchers(HttpMethod.PUT, "/user/**").hasRole("ADMIN")
+                .antMatchers(HttpMethod.DELETE, "/user/**").hasRole("ADMIN")
                 .anyRequest().authenticated();
 
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

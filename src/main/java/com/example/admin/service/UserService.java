@@ -3,6 +3,7 @@ package com.example.admin.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.admin.dto.UserDTO;
 import com.example.admin.entity.User;
+import com.example.admin.vo.UserProfileVO;
 
 import java.util.List;
 
@@ -15,6 +16,11 @@ public interface UserService {
      * 根据 ID 查询用户
      */
     User getById(Long id);
+
+    /**
+     * 根据 ID 查询用户资料
+     */
+    UserProfileVO getProfileById(Long id);
 
     /**
      * 根据用户名查询用户

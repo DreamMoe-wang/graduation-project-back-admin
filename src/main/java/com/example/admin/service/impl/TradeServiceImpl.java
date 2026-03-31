@@ -4,6 +4,7 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.admin.common.PageResult;
+import com.example.admin.common.assembler.UserProfileAssembler;
 import com.example.admin.common.event.EventPublisher;
 import com.example.admin.dto.TradeQueryDTO;
 import com.example.admin.dto.TradeReviewDTO;
@@ -55,6 +56,9 @@ public class TradeServiceImpl implements TradeService {
 
     @Resource
     private EventPublisher eventPublisher;
+
+    @Resource
+    private UserProfileAssembler userProfileAssembler;
 
     @Override
     public PageResult<List<TradeVO>> getPublishPage(TradeQueryDTO queryDTO) {
@@ -347,6 +351,7 @@ public class TradeServiceImpl implements TradeService {
     }
 
     private TradeVO toTradeVO(TradePost tradePost) {
+        User publisher = userMapper.selectById(tradePost.getPublisherId());
         TradeOrder relatedOrder = findLatestOrderByPostId(tradePost.getId());
         User receiver = relatedOrder == null || relatedOrder.getReceiverId() == null
                 ? null
@@ -359,6 +364,8 @@ public class TradeServiceImpl implements TradeService {
                 .clientPhone(tradePost.getContactPhone())
                 .workerName(receiver == null ? null : buildDisplayName(receiver))
                 .workerPhone(receiver == null ? null : receiver.getPhone())
+                .publisher(userProfileAssembler.toProfile(publisher))
+                .worker(userProfileAssembler.toProfile(receiver))
                 .amount(tradePost.getPrice())
                 .status(formatTradeStatus(tradePost.getStatus()))
                 .createTime(formatDateTime(tradePost.getCreateTime()))
@@ -368,6 +375,8 @@ public class TradeServiceImpl implements TradeService {
 
     private TradeOrderVO toTradeOrderVO(TradeOrder order) {
         TradePost tradePost = tradePostMapper.selectById(order.getPostId());
+        User publisher = userMapper.selectById(order.getPublisherId());
+        User receiver = order.getReceiverId() == null ? null : userMapper.selectById(order.getReceiverId());
         String area = "";
         String title = "";
         if (tradePost != null) {
@@ -379,6 +388,8 @@ public class TradeServiceImpl implements TradeService {
                 .orderNo(order.getOrderNo())
                 .title(title)
                 .area(area)
+                .publisher(userProfileAssembler.toProfile(publisher))
+                .receiver(userProfileAssembler.toProfile(receiver))
                 .createTime(formatDateTime(order.getCreateTime()))
                 .price(order.getAmount())
                 .status(formatOrderStatus(order.getStatus()))
