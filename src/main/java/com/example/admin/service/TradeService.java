@@ -2,6 +2,7 @@ package com.example.admin.service;
 
 import com.example.admin.common.PageResult;
 import com.example.admin.dto.TradeQueryDTO;
+import com.example.admin.dto.TradeReviewDTO;
 import com.example.admin.dto.TradeSaveDTO;
 import com.example.admin.vo.TradeOrderStatsVO;
 import com.example.admin.vo.TradeOrderVO;
@@ -43,6 +44,16 @@ public interface TradeService {
      * 删除交易
      */
     boolean deleteTrade(Long id);
+
+    /**
+     * 审核通过
+     */
+    boolean approveTrade(Long id, TradeReviewDTO reviewDTO);
+
+    /**
+     * 审核驳回
+     */
+    boolean rejectTrade(Long id, TradeReviewDTO reviewDTO);
 
     /**
      * 订单统计

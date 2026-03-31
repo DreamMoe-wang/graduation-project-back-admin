@@ -1,0 +1,29 @@
+# 微服务化预留配置示例
+# 当前项目不会直接加载该文件，后续接入注册中心、网关、MQ 时可参考。
+
+spring:
+  application:
+    name: trade-service
+
+  cloud:
+    discovery:
+      enabled: false
+
+  rabbitmq:
+    host: 127.0.0.1
+    port: 5672
+    username: guest
+    password: guest
+
+server:
+  port: 9091
+
+gateway:
+  enabled: false
+
+mq:
+  enabled: false
+  topics:
+    tradePostCreated: trade.post.created
+    tradePostApproved: trade.post.approved
+    tradeOrderCompleted: trade.order.completed

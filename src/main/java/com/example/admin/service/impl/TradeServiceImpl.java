@@ -1,200 +1,509 @@
 package com.example.admin.service.impl;
 
 import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.admin.common.PageResult;
+import com.example.admin.common.event.EventPublisher;
 import com.example.admin.dto.TradeQueryDTO;
+import com.example.admin.dto.TradeReviewDTO;
 import com.example.admin.dto.TradeSaveDTO;
+import com.example.admin.entity.TradeOrder;
+import com.example.admin.entity.TradePost;
+import com.example.admin.entity.TradePostReview;
+import com.example.admin.entity.User;
+import com.example.admin.mapper.TradeOrderMapper;
+import com.example.admin.mapper.TradePostMapper;
+import com.example.admin.mapper.TradePostReviewMapper;
+import com.example.admin.mapper.UserMapper;
+import com.example.admin.security.SecurityUtils;
 import com.example.admin.service.TradeService;
 import com.example.admin.vo.TradeOrderStatsVO;
 import com.example.admin.vo.TradeOrderVO;
 import com.example.admin.vo.TradeVO;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
+import javax.annotation.Resource;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
  * 交易模块服务实现
- *
- * <p>当前阶段先提供与前端页面匹配的占位数据，待数据库表创建完成后再接入 Mapper。</p>
  */
 @Service
 public class TradeServiceImpl implements TradeService {
 
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final Long DEFAULT_CURRENT_USER_ID = 1L;
+    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    @Resource
+    private TradePostMapper tradePostMapper;
+
+    @Resource
+    private TradeOrderMapper tradeOrderMapper;
+
+    @Resource
+    private UserMapper userMapper;
+
+    @Resource
+    private TradePostReviewMapper tradePostReviewMapper;
+
+    @Resource
+    private EventPublisher eventPublisher;
 
     @Override
     public PageResult<List<TradeVO>> getPublishPage(TradeQueryDTO queryDTO) {
-        List<TradeVO> filteredList = filterTradeList(buildTradeSamples(), queryDTO, true);
-        return toPage(filteredList, queryDTO.getPageNum(), queryDTO.getPageSize());
+        Page<TradePost> page = queryTradePostPage(queryDTO);
+        List<TradeVO> records = page.getRecords().stream()
+                .map(this::toTradeVO)
+                .collect(Collectors.toList());
+        return PageResult.of(page.getTotal(), records);
     }
 
     @Override
     public PageResult<List<TradeVO>> getTradeListPage(TradeQueryDTO queryDTO) {
-        List<TradeVO> filteredList = filterTradeList(buildTradeSamples(), queryDTO, false);
-        return toPage(filteredList, queryDTO.getPageNum(), queryDTO.getPageSize());
+        Page<TradePost> page = queryTradePostPage(queryDTO);
+        List<TradeVO> records = page.getRecords().stream()
+                .map(this::toTradeVO)
+                .collect(Collectors.toList());
+        return PageResult.of(page.getTotal(), records);
     }
 
     @Override
     public TradeVO getTradeDetail(Long id) {
-        return buildTradeSamples().stream()
-                .filter(item -> item.getId().equals(id))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("交易不存在"));
+        return toTradeVO(getTradePostById(id));
     }
 
     @Override
     public boolean createTrade(TradeSaveDTO tradeSaveDTO) {
-        return true;
+        TradePost tradePost = new TradePost();
+        Long currentUserId = SecurityUtils.getCurrentUserIdOrDefault(DEFAULT_CURRENT_USER_ID);
+        tradePost.setPostNo(generatePostNo());
+        tradePost.setPublisherId(currentUserId);
+        tradePost.setPostType(1);
+        fillTradePost(tradePost, tradeSaveDTO);
+        Integer status = parseTradeStatus(tradeSaveDTO.getStatus());
+        tradePost.setStatus(status == null ? 0 : status);
+        applyPostStatusTime(tradePost, null);
+        boolean success = tradePostMapper.insert(tradePost) > 0;
+        if (success) {
+            eventPublisher.publish("trade.post.created", tradePost.getPostNo());
+        }
+        return success;
     }
 
     @Override
     public boolean updateTrade(Long id, TradeSaveDTO tradeSaveDTO) {
-        getTradeDetail(id);
-        return true;
+        TradePost tradePost = getTradePostById(id);
+        Integer oldStatus = tradePost.getStatus();
+        fillTradePost(tradePost, tradeSaveDTO);
+        Integer status = parseTradeStatus(tradeSaveDTO.getStatus());
+        tradePost.setStatus(status == null ? tradePost.getStatus() : status);
+        applyPostStatusTime(tradePost, oldStatus);
+        boolean success = tradePostMapper.updateById(tradePost) > 0;
+        if (success) {
+            eventPublisher.publish("trade.post.updated", tradePost.getPostNo());
+        }
+        return success;
     }
 
     @Override
     public boolean deleteTrade(Long id) {
-        getTradeDetail(id);
-        return true;
+        getTradePostById(id);
+        boolean success = tradePostMapper.deleteById(id) > 0;
+        if (success) {
+            eventPublisher.publish("trade.post.deleted", id);
+        }
+        return success;
+    }
+
+    @Override
+    public boolean approveTrade(Long id, TradeReviewDTO reviewDTO) {
+        TradePost tradePost = getTradePostById(id);
+        Long currentUserId = SecurityUtils.getCurrentUserIdOrDefault(DEFAULT_CURRENT_USER_ID);
+        tradePost.setStatus(3);
+        tradePost.setReviewerId(currentUserId);
+        tradePost.setReviewTime(LocalDateTime.now());
+        tradePost.setReviewRemark(reviewDTO == null ? null : reviewDTO.getReviewRemark());
+        tradePost.setPublishTime(LocalDateTime.now());
+        tradePost.setOffShelfTime(null);
+        saveReviewRecord(id, currentUserId, 1, reviewDTO == null ? null : reviewDTO.getReviewRemark());
+        boolean success = tradePostMapper.updateById(tradePost) > 0;
+        if (success) {
+            eventPublisher.publish("trade.post.approved", tradePost.getPostNo());
+        }
+        return success;
+    }
+
+    @Override
+    public boolean rejectTrade(Long id, TradeReviewDTO reviewDTO) {
+        TradePost tradePost = getTradePostById(id);
+        Long currentUserId = SecurityUtils.getCurrentUserIdOrDefault(DEFAULT_CURRENT_USER_ID);
+        tradePost.setStatus(2);
+        tradePost.setReviewerId(currentUserId);
+        tradePost.setReviewTime(LocalDateTime.now());
+        tradePost.setReviewRemark(reviewDTO == null ? null : reviewDTO.getReviewRemark());
+        saveReviewRecord(id, currentUserId, 2, reviewDTO == null ? null : reviewDTO.getReviewRemark());
+        boolean success = tradePostMapper.updateById(tradePost) > 0;
+        if (success) {
+            eventPublisher.publish("trade.post.rejected", tradePost.getPostNo());
+        }
+        return success;
     }
 
     @Override
     public TradeOrderStatsVO getOrderStats() {
-        List<TradeOrderVO> orderList = buildOrderSamples();
-        int pendingCount = (int) orderList.stream().filter(item -> "pending".equals(item.getStatus())).count();
-        int progressCount = (int) orderList.stream().filter(item -> "progress".equals(item.getStatus())).count();
-        int successCount = (int) orderList.stream().filter(item -> "success".equals(item.getStatus())).count();
         return TradeOrderStatsVO.builder()
-                .totalCount(orderList.size())
-                .pendingCount(pendingCount)
-                .progressCount(progressCount)
-                .successCount(successCount)
+                .totalCount(Math.toIntExact(tradeOrderMapper.selectCount(null)))
+                .pendingCount(countOrderByStatus(0))
+                .progressCount(countOrderByStatus(1))
+                .successCount(countOrderByStatus(2))
                 .build();
     }
 
     @Override
     public PageResult<List<TradeOrderVO>> getOrderPage(Integer pageNum, Integer pageSize, String status) {
-        List<TradeOrderVO> orderList = buildOrderSamples();
-        if (StrUtil.isNotBlank(status)) {
-            orderList = orderList.stream()
-                    .filter(item -> status.equals(item.getStatus()))
-                    .collect(Collectors.toList());
+        LambdaQueryWrapper<TradeOrder> wrapper = new LambdaQueryWrapper<>();
+        Integer orderStatus = parseOrderStatus(status);
+        if (orderStatus != null) {
+            wrapper.eq(TradeOrder::getStatus, orderStatus);
         }
-        return toPage(orderList, pageNum, pageSize);
+        wrapper.orderByDesc(TradeOrder::getCreateTime);
+
+        Page<TradeOrder> page = new Page<>(pageNum == null || pageNum < 1 ? 1 : pageNum,
+                pageSize == null || pageSize < 1 ? 10 : pageSize);
+        Page<TradeOrder> result = tradeOrderMapper.selectPage(page, wrapper);
+        List<TradeOrderVO> records = result.getRecords().stream()
+                .map(this::toTradeOrderVO)
+                .collect(Collectors.toList());
+        return PageResult.of(result.getTotal(), records);
     }
 
     @Override
     public TradeOrderVO getOrderDetail(Long id) {
-        return buildOrderSamples().stream()
-                .filter(item -> item.getId().equals(id))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("订单不存在"));
+        return toTradeOrderVO(getTradeOrderById(id));
     }
 
     @Override
     public boolean receiveOrder(Long id) {
-        getOrderDetail(id);
-        return true;
+        TradeOrder order = getTradeOrderById(id);
+        Long currentUserId = SecurityUtils.getCurrentUserIdOrDefault(DEFAULT_CURRENT_USER_ID);
+        if (order.getStatus() != 0) {
+            throw new RuntimeException("当前订单状态不允许接单");
+        }
+        order.setStatus(1);
+        if (order.getReceiverId() == null || order.getReceiverId() <= 0) {
+            order.setReceiverId(currentUserId);
+        }
+        order.setConfirmTime(LocalDateTime.now());
+        boolean success = tradeOrderMapper.updateById(order) > 0;
+        if (success) {
+            eventPublisher.publish("trade.order.received", order.getOrderNo());
+        }
+        return success;
     }
 
     @Override
     public boolean completeOrder(Long id) {
-        getOrderDetail(id);
-        return true;
+        TradeOrder order = getTradeOrderById(id);
+        if (order.getStatus() != 1) {
+            throw new RuntimeException("只有进行中的订单才能完成");
+        }
+        order.setStatus(2);
+        order.setFinishTime(LocalDateTime.now());
+        boolean updated = tradeOrderMapper.updateById(order) > 0;
+        TradePost tradePost = tradePostMapper.selectById(order.getPostId());
+        if (updated && tradePost != null) {
+            tradePost.setStatus(4);
+            tradePost.setOffShelfTime(LocalDateTime.now());
+            tradePostMapper.updateById(tradePost);
+        }
+        if (updated) {
+            eventPublisher.publish("trade.order.completed", order.getOrderNo());
+        }
+        return updated;
     }
 
     @Override
     public boolean cancelOrder(Long id) {
-        getOrderDetail(id);
-        return true;
-    }
-
-    private List<TradeVO> filterTradeList(List<TradeVO> tradeList, TradeQueryDTO queryDTO, boolean checkTitle) {
-        if (tradeList.isEmpty()) {
-            return Collections.emptyList();
+        TradeOrder order = getTradeOrderById(id);
+        if (order.getStatus() == 2) {
+            throw new RuntimeException("已完成订单不能取消");
         }
-        return tradeList.stream()
-                .filter(item -> !checkTitle || StrUtil.isBlank(queryDTO.getTitle()) || StrUtil.contains(item.getTitle(), queryDTO.getTitle()))
-                .filter(item -> StrUtil.isBlank(queryDTO.getStatus()) || queryDTO.getStatus().equals(item.getStatus()))
-                .filter(item -> queryDTO.getMinAmount() == null || item.getAmount().compareTo(queryDTO.getMinAmount()) >= 0)
-                .filter(item -> queryDTO.getMaxAmount() == null || item.getAmount().compareTo(queryDTO.getMaxAmount()) <= 0)
-                .filter(item -> matchDateRange(item.getCreateTime(), queryDTO.getStartDate(), queryDTO.getEndDate()))
-                .collect(Collectors.toList());
-    }
-
-    private boolean matchDateRange(String createTime, String startDate, String endDate) {
-        if (StrUtil.isBlank(startDate) && StrUtil.isBlank(endDate)) {
-            return true;
+        order.setStatus(3);
+        order.setCancelTime(LocalDateTime.now());
+        if (StrUtil.isBlank(order.getCancelReason())) {
+            order.setCancelReason("后台取消订单");
         }
-        LocalDate tradeDate = LocalDate.parse(createTime.substring(0, 10), DATE_FORMATTER);
-        if (StrUtil.isNotBlank(startDate)) {
-            LocalDate start = LocalDate.parse(startDate, DATE_FORMATTER);
-            if (tradeDate.isBefore(start)) {
-                return false;
-            }
+        boolean success = tradeOrderMapper.updateById(order) > 0;
+        if (success) {
+            eventPublisher.publish("trade.order.cancelled", order.getOrderNo());
         }
-        if (StrUtil.isNotBlank(endDate)) {
-            LocalDate end = LocalDate.parse(endDate, DATE_FORMATTER);
-            if (tradeDate.isAfter(end)) {
-                return false;
-            }
+        return success;
+    }
+
+    private Page<TradePost> queryTradePostPage(TradeQueryDTO queryDTO) {
+        LambdaQueryWrapper<TradePost> wrapper = new LambdaQueryWrapper<>();
+        if (StrUtil.isNotBlank(queryDTO.getTitle())) {
+            wrapper.like(TradePost::getTitle, queryDTO.getTitle().trim());
         }
-        return true;
+        Integer tradeStatus = parseTradeStatus(queryDTO.getStatus());
+        if (tradeStatus != null) {
+            wrapper.eq(TradePost::getStatus, tradeStatus);
+        }
+        if (queryDTO.getMinAmount() != null) {
+            wrapper.ge(TradePost::getPrice, queryDTO.getMinAmount());
+        }
+        if (queryDTO.getMaxAmount() != null) {
+            wrapper.le(TradePost::getPrice, queryDTO.getMaxAmount());
+        }
+        if (StrUtil.isNotBlank(queryDTO.getStartDate())) {
+            wrapper.ge(TradePost::getCreateTime,
+                    LocalDate.parse(queryDTO.getStartDate()).atStartOfDay());
+        }
+        if (StrUtil.isNotBlank(queryDTO.getEndDate())) {
+            wrapper.le(TradePost::getCreateTime,
+                    LocalDate.parse(queryDTO.getEndDate()).atTime(LocalTime.MAX));
+        }
+        wrapper.orderByDesc(TradePost::getCreateTime);
+
+        Page<TradePost> page = new Page<>(queryDTO.getPageNum() == null || queryDTO.getPageNum() < 1 ? 1 : queryDTO.getPageNum(),
+                queryDTO.getPageSize() == null || queryDTO.getPageSize() < 1 ? 10 : queryDTO.getPageSize());
+        return tradePostMapper.selectPage(page, wrapper);
     }
 
-    private <T> PageResult<List<T>> toPage(List<T> sourceList, Integer pageNum, Integer pageSize) {
-        int currentPage = pageNum == null || pageNum < 1 ? 1 : pageNum;
-        int size = pageSize == null || pageSize < 1 ? 10 : pageSize;
-        int fromIndex = Math.min((currentPage - 1) * size, sourceList.size());
-        int toIndex = Math.min(fromIndex + size, sourceList.size());
-        return PageResult.of((long) sourceList.size(), new ArrayList<>(sourceList.subList(fromIndex, toIndex)));
+    private TradeVO toTradeVO(TradePost tradePost) {
+        TradeOrder relatedOrder = findLatestOrderByPostId(tradePost.getId());
+        User receiver = relatedOrder == null ? null : userMapper.selectById(relatedOrder.getReceiverId());
+
+        return TradeVO.builder()
+                .id(tradePost.getId())
+                .title(tradePost.getTitle())
+                .clientName(tradePost.getContactName())
+                .clientPhone(tradePost.getContactPhone())
+                .workerName(receiver == null ? null : buildDisplayName(receiver))
+                .workerPhone(receiver == null ? null : receiver.getPhone())
+                .amount(tradePost.getPrice())
+                .status(formatTradeStatus(tradePost.getStatus()))
+                .createTime(formatDateTime(tradePost.getCreateTime()))
+                .description(tradePost.getContent())
+                .build();
     }
 
-    private List<TradeVO> buildTradeSamples() {
-        return Arrays.asList(
-                TradeVO.builder().id(1001L).title("上门维修服务 - 空调清洗").clientName("张先生").clientPhone("13800138001").workerName("李师傅").workerPhone("13900139001").amount(new BigDecimal("150.00")).status("trading").createTime("2024-01-15 10:30:00").description("需要清洗两台壁挂式空调").build(),
-                TradeVO.builder().id(1002L).title("搬家服务 - 小型搬运").clientName("王女士").clientPhone("13800138002").workerName("").workerPhone("").amount(new BigDecimal("300.00")).status("published").createTime("2024-01-16 14:20:00").description("一居室搬家，有电梯").build(),
-                TradeVO.builder().id(1003L).title("家教辅导 - 初中数学").clientName("刘先生").clientPhone("13800138003").workerName("陈老师").workerPhone("13900139003").amount(new BigDecimal("200.00")).status("trading").createTime("2024-01-17 09:00:00").description("每周两次，每次两小时").build(),
-                TradeVO.builder().id(1004L).title("宠物寄养 - 猫咪照顾").clientName("赵女士").clientPhone("13800138004").workerName("").workerPhone("").amount(new BigDecimal("100.00")).status("auditing").createTime("2024-01-18 16:45:00").description("春节假期 7 天寄养").build(),
-                TradeVO.builder().id(1005L).title("代驾服务 - 晚间代驾").clientName("孙先生").clientPhone("13800138005").workerName("周师傅").workerPhone("13900139005").amount(new BigDecimal("80.00")).status("completed").createTime("2024-01-19 20:00:00").description("从酒吧到小区").build(),
-                TradeVO.builder().id(1006L).title("保洁服务 - 深度清洁").clientName("吴女士").clientPhone("13800138006").workerName("").workerPhone("").amount(new BigDecimal("250.00")).status("draft").createTime("2024-01-20 11:30:00").description("三居室全屋清洁").build(),
-                TradeVO.builder().id(1007L).title("电脑维修 - 系统重装").clientName("郑先生").clientPhone("13800138007").workerName("钱工程师").workerPhone("13900139007").amount(new BigDecimal("120.00")).status("rejected").createTime("2024-01-21 13:15:00").description("笔记本系统重装，数据备份").build(),
-                TradeVO.builder().id(1008L).title("管道疏通 - 厨房下水道").clientName("冯女士").clientPhone("13800138008").workerName("刘师傅").workerPhone("13900139008").amount(new BigDecimal("180.00")).status("trading").createTime("2024-01-22 09:30:00").description("厨房下水道堵塞").build(),
-                TradeVO.builder().id(1009L).title("跑腿代购 - 超市采购").clientName("陈先生").clientPhone("13800138009").workerName("").workerPhone("").amount(new BigDecimal("50.00")).status("published").createTime("2024-01-23 15:00:00").description("帮忙购买生活用品").build(),
-                TradeVO.builder().id(1010L).title("汽车保养 - 更换机油").clientName("杨先生").clientPhone("13800138010").workerName("黄技师").workerPhone("13900139010").amount(new BigDecimal("380.00")).status("completed").createTime("2024-01-24 10:00:00").description("全合成机油更换").build()
-        );
-    }
-
-    private List<TradeOrderVO> buildOrderSamples() {
-        return Arrays.asList(
-                buildOrder(1L, "TR202603280001", "代取快递，送到宿舍楼下", "北京市海淀区", "2026-03-28 10:30", "20.00", "pending", "待接单"),
-                buildOrder(2L, "TR202603280002", "专业保洁，上门打扫", "北京市朝阳区", "2026-03-28 09:15", "150.00", "progress", "进行中"),
-                buildOrder(3L, "TR202603270003", "电脑维修，无法开机", "北京市东城区", "2026-03-27 16:20", "100.00", "success", "已完成"),
-                buildOrder(4L, "TR202603270004", "宠物代遛 - 金毛犬", "北京市丰台区", "2026-03-27 14:40", "60.00", "pending", "待接单"),
-                buildOrder(5L, "TR202603260005", "代买药品送上门", "北京市西城区", "2026-03-26 18:10", "35.00", "progress", "进行中"),
-                buildOrder(6L, "TR202603260006", "文件打印装订", "北京市海淀区", "2026-03-26 11:20", "28.00", "success", "已完成")
-        );
-    }
-
-    private TradeOrderVO buildOrder(Long id, String orderNo, String title, String area,
-                                    String createTime, String price, String status, String statusText) {
+    private TradeOrderVO toTradeOrderVO(TradeOrder order) {
+        TradePost tradePost = tradePostMapper.selectById(order.getPostId());
+        String area = "";
+        String title = "";
+        if (tradePost != null) {
+            title = tradePost.getTitle();
+            area = buildArea(tradePost.getCityName(), tradePost.getAreaName());
+        }
         return TradeOrderVO.builder()
-                .id(id)
-                .orderNo(orderNo)
+                .id(order.getId())
+                .orderNo(order.getOrderNo())
                 .title(title)
                 .area(area)
-                .createTime(createTime)
-                .price(new BigDecimal(price))
-                .status(status)
-                .statusText(statusText)
+                .createTime(formatDateTime(order.getCreateTime()))
+                .price(order.getAmount())
+                .status(formatOrderStatus(order.getStatus()))
+                .statusText(formatOrderStatusText(order.getStatus()))
                 .build();
+    }
+
+    private TradePost getTradePostById(Long id) {
+        TradePost tradePost = tradePostMapper.selectById(id);
+        if (tradePost == null) {
+            throw new RuntimeException("交易不存在");
+        }
+        return tradePost;
+    }
+
+    private TradeOrder getTradeOrderById(Long id) {
+        TradeOrder order = tradeOrderMapper.selectById(id);
+        if (order == null) {
+            throw new RuntimeException("订单不存在");
+        }
+        return order;
+    }
+
+    private TradeOrder findLatestOrderByPostId(Long postId) {
+        LambdaQueryWrapper<TradeOrder> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(TradeOrder::getPostId, postId)
+                .orderByDesc(TradeOrder::getCreateTime)
+                .last("limit 1");
+        return tradeOrderMapper.selectOne(wrapper);
+    }
+
+    private int countOrderByStatus(Integer status) {
+        LambdaQueryWrapper<TradeOrder> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(TradeOrder::getStatus, status);
+        return Math.toIntExact(tradeOrderMapper.selectCount(wrapper));
+    }
+
+    private void fillTradePost(TradePost tradePost, TradeSaveDTO tradeSaveDTO) {
+        tradePost.setTitle(tradeSaveDTO.getTitle());
+        tradePost.setContent(tradeSaveDTO.getDescription());
+        tradePost.setPrice(tradeSaveDTO.getAmount());
+        tradePost.setContactName(tradeSaveDTO.getClientName());
+        tradePost.setContactPhone(tradeSaveDTO.getClientPhone());
+    }
+
+    private void saveReviewRecord(Long postId, Long reviewerId, Integer reviewResult, String reviewRemark) {
+        TradePostReview review = new TradePostReview();
+        review.setPostId(postId);
+        review.setReviewerId(reviewerId);
+        review.setReviewResult(reviewResult);
+        review.setReviewRemark(reviewRemark);
+        tradePostReviewMapper.insert(review);
+    }
+
+    private void applyPostStatusTime(TradePost tradePost, Integer oldStatus) {
+        if (tradePost.getStatus() != null && tradePost.getStatus() == 3 && (oldStatus == null || oldStatus != 3)) {
+            tradePost.setPublishTime(LocalDateTime.now());
+            tradePost.setOffShelfTime(null);
+        }
+        if (tradePost.getStatus() != null && tradePost.getStatus() == 4 && (oldStatus == null || oldStatus != 4)) {
+            tradePost.setOffShelfTime(LocalDateTime.now());
+        }
+    }
+
+    private String buildDisplayName(User user) {
+        return StrUtil.isNotBlank(user.getNickname()) ? user.getNickname() : user.getUsername();
+    }
+
+    private String buildArea(String cityName, String areaName) {
+        if (StrUtil.isBlank(cityName) && StrUtil.isBlank(areaName)) {
+            return "";
+        }
+        if (StrUtil.isBlank(cityName)) {
+            return areaName;
+        }
+        if (StrUtil.isBlank(areaName)) {
+            return cityName;
+        }
+        return cityName + areaName;
+    }
+
+    private String formatDateTime(LocalDateTime dateTime) {
+        return dateTime == null ? null : dateTime.format(DATETIME_FORMATTER);
+    }
+
+    private String generatePostNo() {
+        return "TP" + System.currentTimeMillis();
+    }
+
+    private Integer parseTradeStatus(String status) {
+        if (StrUtil.isBlank(status)) {
+            return null;
+        }
+        String value = status.trim().toLowerCase(Locale.ROOT);
+        switch (value) {
+            case "draft":
+                return 0;
+            case "auditing":
+                return 1;
+            case "rejected":
+                return 2;
+            case "published":
+            case "trading":
+            case "onshelf":
+            case "on_shelf":
+                return 3;
+            case "offshelf":
+            case "off_shelf":
+            case "completed":
+                return 4;
+            default:
+                if (StrUtil.isNumeric(value)) {
+                    return Integer.parseInt(value);
+                }
+                return null;
+        }
+    }
+
+    private String formatTradeStatus(Integer status) {
+        if (status == null) {
+            return null;
+        }
+        switch (status) {
+            case 0:
+                return "draft";
+            case 1:
+                return "auditing";
+            case 2:
+                return "rejected";
+            case 3:
+                return "published";
+            case 4:
+                return "offShelf";
+            default:
+                return String.valueOf(status);
+        }
+    }
+
+    private Integer parseOrderStatus(String status) {
+        if (StrUtil.isBlank(status)) {
+            return null;
+        }
+        String value = status.trim().toLowerCase(Locale.ROOT);
+        switch (value) {
+            case "pending":
+                return 0;
+            case "progress":
+            case "processing":
+                return 1;
+            case "success":
+            case "completed":
+                return 2;
+            case "cancel":
+            case "cancelled":
+                return 3;
+            default:
+                if (StrUtil.isNumeric(value)) {
+                    return Integer.parseInt(value);
+                }
+                return null;
+        }
+    }
+
+    private String formatOrderStatus(Integer status) {
+        if (status == null) {
+            return null;
+        }
+        switch (status) {
+            case 0:
+                return "pending";
+            case 1:
+                return "progress";
+            case 2:
+                return "success";
+            case 3:
+                return "cancel";
+            default:
+                return String.valueOf(status);
+        }
+    }
+
+    private String formatOrderStatusText(Integer status) {
+        if (status == null) {
+            return "";
+        }
+        switch (status) {
+            case 0:
+                return "待确认";
+            case 1:
+                return "进行中";
+            case 2:
+                return "已完成";
+            case 3:
+                return "已取消";
+            default:
+                return "未知状态";
+        }
     }
 }

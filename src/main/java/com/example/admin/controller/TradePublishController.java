@@ -3,6 +3,7 @@ package com.example.admin.controller;
 import com.example.admin.common.PageResult;
 import com.example.admin.common.Result;
 import com.example.admin.dto.TradeQueryDTO;
+import com.example.admin.dto.TradeReviewDTO;
 import com.example.admin.dto.TradeSaveDTO;
 import com.example.admin.service.TradeService;
 import com.example.admin.vo.TradeVO;
@@ -52,6 +53,24 @@ public class TradePublishController {
     public Result<Boolean> create(@RequestBody @Validated TradeSaveDTO tradeSaveDTO) {
         boolean success = tradeService.createTrade(tradeSaveDTO);
         return success ? Result.success("发布成功", true) : Result.error("发布失败");
+    }
+
+    /**
+     * 审核通过
+     */
+    @PostMapping("/{id}/approve")
+    public Result<Boolean> approve(@PathVariable Long id, @RequestBody(required = false) @Validated TradeReviewDTO reviewDTO) {
+        boolean success = tradeService.approveTrade(id, reviewDTO == null ? new TradeReviewDTO() : reviewDTO);
+        return success ? Result.success("审核通过", true) : Result.error("审核失败");
+    }
+
+    /**
+     * 审核驳回
+     */
+    @PostMapping("/{id}/reject")
+    public Result<Boolean> reject(@PathVariable Long id, @RequestBody(required = false) @Validated TradeReviewDTO reviewDTO) {
+        boolean success = tradeService.rejectTrade(id, reviewDTO == null ? new TradeReviewDTO() : reviewDTO);
+        return success ? Result.success("已驳回", true) : Result.error("审核失败");
     }
 
     /**

@@ -57,6 +57,11 @@ public class User implements Serializable {
     private Integer status;
 
     /**
+     * 最后登录时间
+     */
+    private LocalDateTime lastLoginTime;
+
+    /**
      * 创建时间
      */
     @TableField(fill = FieldFill.INSERT)

@@ -2,23 +2,19 @@ package com.example.admin.service.impl;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.BCrypt;
-import cn.hutool.jwt.JWT;
-import cn.hutool.jwt.JWTUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.example.admin.dto.LoginDTO;
 import com.example.admin.dto.UserDTO;
 import com.example.admin.entity.User;
 import com.example.admin.mapper.UserMapper;
+import com.example.admin.service.AuthService;
 import com.example.admin.service.UserService;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
-import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 用户服务实现类
@@ -29,11 +25,8 @@ public class UserServiceImpl implements UserService {
     @Resource
     private UserMapper userMapper;
 
-    @Value("${jwt.secret}")
-    private String jwtSecret;
-
-    @Value("${jwt.expiration}")
-    private Long jwtExpiration;
+    @Resource
+    private AuthService authService;
 
     @Override
     public User getById(Long id) {
@@ -100,24 +93,9 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public String login(String username, String password) {
-        User user = getByUsername(username);
-        if (user == null) {
-            throw new RuntimeException("用户名或密码错误");
-        }
-        
-        if (!BCrypt.checkpw(password, user.getPassword())) {
-            throw new RuntimeException("用户名或密码错误");
-        }
-        
-        if (user.getStatus() != 1) {
-            throw new RuntimeException("用户已被禁用");
-        }
-        
-        // 使用 Hutool 生成 JWT Token
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("userId", user.getId());
-        payload.put("username", user.getUsername());
-        
-        return JWTUtil.createToken(payload, jwtSecret.getBytes());
+        LoginDTO loginDTO = new LoginDTO();
+        loginDTO.setUsername(username);
+        loginDTO.setPassword(password);
+        return authService.login(loginDTO).getToken();
     }
 }

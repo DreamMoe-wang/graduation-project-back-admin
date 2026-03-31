@@ -3,8 +3,10 @@ package com.example.admin.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.admin.common.PageResult;
 import com.example.admin.common.Result;
+import com.example.admin.dto.LoginDTO;
 import com.example.admin.dto.UserDTO;
 import com.example.admin.entity.User;
+import com.example.admin.service.AuthService;
 import com.example.admin.service.UserService;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -22,13 +24,19 @@ public class UserController {
     @Resource
     private UserService userService;
 
+    @Resource
+    private AuthService authService;
+
     /**
      * 用户登录
      */
     @PostMapping("/login")
     public Result<String> login(@RequestParam String username, 
                                  @RequestParam String password) {
-        String token = userService.login(username, password);
+        LoginDTO loginDTO = new LoginDTO();
+        loginDTO.setUsername(username);
+        loginDTO.setPassword(password);
+        String token = authService.login(loginDTO).getToken();
         return Result.success("登录成功", token);
     }
 
