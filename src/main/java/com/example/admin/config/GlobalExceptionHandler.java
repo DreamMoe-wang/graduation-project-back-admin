@@ -2,6 +2,7 @@ package com.example.admin.config;
 
 import com.example.admin.common.Result;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -45,6 +46,15 @@ public class GlobalExceptionHandler {
                 ? e.getBindingResult().getFieldError().getDefaultMessage() : "参数绑定失败";
         log.error("参数绑定异常：{}", message);
         return Result.error(400, message);
+    }
+
+    /**
+     * 处理无权限异常
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public Result<Void> handleAccessDeniedException(AccessDeniedException e) {
+        log.error("权限异常：{}", e.getMessage());
+        return Result.error(403, e.getMessage());
     }
 
     /**

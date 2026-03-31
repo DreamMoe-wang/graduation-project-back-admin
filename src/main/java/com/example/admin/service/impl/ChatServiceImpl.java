@@ -22,7 +22,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -32,7 +31,6 @@ import java.util.stream.Collectors;
 @Service
 public class ChatServiceImpl implements ChatService {
 
-    private static final Long DEFAULT_CURRENT_USER_ID = 1L;
     private static final DateTimeFormatter SESSION_TIME_FORMATTER = DateTimeFormatter.ofPattern("MM-dd HH:mm");
     private static final DateTimeFormatter MESSAGE_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -50,13 +48,14 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     public List<ChatSessionVO> getSessions(String keyword) {
-        Long currentUserId = SecurityUtils.getCurrentUserIdOrDefault(DEFAULT_CURRENT_USER_ID);
+        Long currentUserId = currentUserId();
+
         LambdaQueryWrapper<ChatSessionUser> memberWrapper = new LambdaQueryWrapper<>();
         memberWrapper.eq(ChatSessionUser::getUserId, currentUserId);
         List<ChatSessionUser> sessionUsers = chatSessionUserMapper.selectList(memberWrapper);
 
         return sessionUsers.stream()
-                .map(item -> buildSessionVO(item.getSessionId(), item.getUnreadCount()))
+                .map(item -> buildSessionVO(item.getSessionId(), currentUserId, item.getUnreadCount()))
                 .filter(Objects::nonNull)
                 .filter(item -> StrUtil.isBlank(keyword)
                         || StrUtil.containsIgnoreCase(item.getName(), keyword)
@@ -67,19 +66,21 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     public List<ChatMessageVO> getMessages(Long sessionId) {
-        ensureSessionAccessible(sessionId);
+        Long currentUserId = currentUserId();
+        ensureSessionAccessible(sessionId, currentUserId);
+
         LambdaQueryWrapper<ChatMessage> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ChatMessage::getSessionId, sessionId)
                 .orderByAsc(ChatMessage::getCreateTime);
         return chatMessageMapper.selectList(wrapper).stream()
-                .map(this::toChatMessageVO)
+                .map(item -> toChatMessageVO(item, currentUserId))
                 .collect(Collectors.toList());
     }
 
     @Override
     public boolean sendMessage(Long sessionId, ChatMessageSendDTO sendDTO) {
-        Long currentUserId = SecurityUtils.getCurrentUserIdOrDefault(DEFAULT_CURRENT_USER_ID);
-        ensureSessionAccessible(sessionId);
+        Long currentUserId = currentUserId();
+        ensureSessionAccessible(sessionId, currentUserId);
 
         ChatMessage message = new ChatMessage();
         message.setSessionId(sessionId);
@@ -114,7 +115,8 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     public boolean markSessionRead(Long sessionId) {
-        ChatSessionUser sessionUser = ensureSessionAccessible(sessionId);
+        Long currentUserId = currentUserId();
+        ChatSessionUser sessionUser = ensureSessionAccessible(sessionId, currentUserId);
 
         LambdaQueryWrapper<ChatMessage> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ChatMessage::getSessionId, sessionId)
@@ -130,8 +132,7 @@ public class ChatServiceImpl implements ChatService {
         return chatSessionUserMapper.updateById(sessionUser) > 0;
     }
 
-    private ChatSessionVO buildSessionVO(Long sessionId, Integer unreadCount) {
-        Long currentUserId = SecurityUtils.getCurrentUserIdOrDefault(DEFAULT_CURRENT_USER_ID);
+    private ChatSessionVO buildSessionVO(Long sessionId, Long currentUserId, Integer unreadCount) {
         ChatSession session = chatSessionMapper.selectById(sessionId);
         if (session == null) {
             return null;
@@ -158,8 +159,7 @@ public class ChatServiceImpl implements ChatService {
                 .build();
     }
 
-    private ChatMessageVO toChatMessageVO(ChatMessage message) {
-        Long currentUserId = SecurityUtils.getCurrentUserIdOrDefault(DEFAULT_CURRENT_USER_ID);
+    private ChatMessageVO toChatMessageVO(ChatMessage message, Long currentUserId) {
         return ChatMessageVO.builder()
                 .id(message.getId())
                 .type(currentUserId.equals(message.getSenderId()) ? "sent" : "received")
@@ -168,11 +168,11 @@ public class ChatServiceImpl implements ChatService {
                 .build();
     }
 
-    private ChatSessionUser ensureSessionAccessible(Long sessionId) {
-        Long currentUserId = SecurityUtils.getCurrentUserIdOrDefault(DEFAULT_CURRENT_USER_ID);
+    private ChatSessionUser ensureSessionAccessible(Long sessionId, Long currentUserId) {
         if (sessionId == null || sessionId <= 0) {
             throw new RuntimeException("会话不存在");
         }
+
         LambdaQueryWrapper<ChatSessionUser> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ChatSessionUser::getSessionId, sessionId)
                 .eq(ChatSessionUser::getUserId, currentUserId)
@@ -192,5 +192,9 @@ public class ChatServiceImpl implements ChatService {
             return user.getNickname();
         }
         return StrUtil.blankToDefault(user.getUsername(), "用户");
+    }
+
+    private Long currentUserId() {
+        return SecurityUtils.requireCurrentUserId();
     }
 }
