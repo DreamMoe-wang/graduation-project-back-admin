@@ -60,6 +60,38 @@ CREATE TABLE IF NOT EXISTS `sys_user_role` (
     KEY `idx_sys_user_role_role_id` (`role_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户角色关联表';
 
+CREATE TABLE IF NOT EXISTS `sys_menu` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `parent_id` BIGINT NOT NULL DEFAULT 0 COMMENT '父菜单ID，0 表示根节点',
+    `menu_name` VARCHAR(100) NOT NULL COMMENT '菜单名称',
+    `menu_type` TINYINT NOT NULL COMMENT '菜单类型：1-目录，2-菜单，3-按钮',
+    `path` VARCHAR(255) DEFAULT NULL COMMENT '路由路径',
+    `route_name` VARCHAR(100) DEFAULT NULL COMMENT '路由名称',
+    `component` VARCHAR(255) DEFAULT NULL COMMENT '前端组件路径',
+    `icon` VARCHAR(100) DEFAULT NULL COMMENT '图标',
+    `permission_code` VARCHAR(100) DEFAULT NULL COMMENT '权限标识',
+    `sort_no` INT NOT NULL DEFAULT 0 COMMENT '排序号',
+    `visible` TINYINT NOT NULL DEFAULT 1 COMMENT '是否显示：0-隐藏，1-显示',
+    `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态：0-禁用，1-启用',
+    `remark` VARCHAR(255) DEFAULT NULL COMMENT '备注',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_sys_menu_parent_id` (`parent_id`),
+    UNIQUE KEY `uk_sys_menu_path` (`path`),
+    UNIQUE KEY `uk_sys_menu_permission_code` (`permission_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='菜单表';
+
+CREATE TABLE IF NOT EXISTS `sys_role_menu` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `role_id` BIGINT NOT NULL COMMENT '角色ID',
+    `menu_id` BIGINT NOT NULL COMMENT '菜单ID',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_sys_role_menu_role_menu` (`role_id`, `menu_id`),
+    KEY `idx_sys_role_menu_menu_id` (`menu_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色菜单关联表';
+
 -- =============================================
 -- 发布、审核、订单
 -- =============================================
@@ -231,7 +263,7 @@ ON DUPLICATE KEY UPDATE
 
 INSERT INTO `sys_user` (`id`, `username`, `password`, `nickname`, `email`, `status`)
 VALUES
-    (1, 'admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lqkkO9QS3TzCjH3rS', '管理员', 'admin@example.com', 1)
+    (1, 'admin', '$2a$10$w1wcaJmdAapRPF.I/GhNdeUtbrdEZNfmuAdcRei7ETpOXbS56W9oq', '管理员', 'admin@example.com', 1)
 ON DUPLICATE KEY UPDATE
     `password` = VALUES(`password`),
     `nickname` = VALUES(`nickname`),
@@ -241,6 +273,43 @@ ON DUPLICATE KEY UPDATE
 INSERT IGNORE INTO `sys_user_role` (`user_id`, `role_id`)
 VALUES
     (1, 1);
+
+INSERT INTO `sys_menu`
+(`id`, `parent_id`, `menu_name`, `menu_type`, `path`, `route_name`, `component`, `icon`, `permission_code`, `sort_no`, `visible`, `status`, `remark`)
+VALUES
+    (1001, 0, '首页', 2, '/', 'Dashboard', 'HomeView', 'HomeFilled', 'dashboard:view', 1, 1, 1, '首页菜单'),
+    (1002, 0, '交易集市', 1, '/trade', 'TradeMarket', NULL, 'ShoppingCart', 'trade:view', 2, 1, 1, '交易集市目录'),
+    (1003, 1002, '交易发布', 2, '/trade/publish', 'TradePublish', 'trade/TradePublish', 'EditPen', 'trade:publish:view', 1, 1, 1, '交易发布页面'),
+    (1004, 1002, '交易大全', 2, '/trade/list', 'TradeList', 'trade/TradeList', 'List', 'trade:list:view', 2, 1, 1, '交易大全页面'),
+    (1005, 1002, '订单大全', 2, '/trade/order', 'TradeOrder', 'trade/TradeOrder', 'Document', 'trade:order:view', 3, 1, 1, '订单大全页面'),
+    (1006, 0, '聊天室', 2, '/chat', 'ChatRoom', 'chat/ChatRoom', 'ChatDotRound', 'chat:view', 3, 1, 1, '聊天室页面'),
+    (1007, 0, '用户管理', 2, '/user', 'UserManage', 'user/UserManage', 'User', 'user:manage', 4, 1, 1, '用户管理页面'),
+    (1008, 0, '角色管理', 2, '/role', 'RoleManage', 'role/RoleManage', 'Avatar', 'role:manage', 5, 1, 1, '角色管理页面'),
+    (1009, 0, '菜单管理', 2, '/menu', 'MenuManage', 'menu/MenuManage', 'Menu', 'menu:manage', 6, 1, 1, '菜单管理页面'),
+    (1010, 0, '字典管理', 2, '/dict', 'DictManage', 'dict/DictManage', 'Collection', 'dict:manage', 7, 1, 1, '字典管理页面'),
+    (1011, 0, '通知公告', 2, '/notice', 'NoticeManage', 'notice/NoticeManage', 'Bell', 'notice:manage', 8, 1, 1, '通知公告页面'),
+    (1012, 0, '日志管理', 2, '/log', 'LogManage', 'log/LogManage', 'Notebook', 'log:manage', 9, 1, 1, '日志管理页面'),
+    (1013, 0, '系统设置', 2, '/setting', 'SystemSetting', 'setting/SystemSetting', 'Setting', 'setting:manage', 10, 1, 1, '系统设置页面'),
+    (1014, 1002, '交易审核', 3, NULL, NULL, NULL, NULL, 'trade:review', 99, 0, 1, '交易审核按钮权限')
+ON DUPLICATE KEY UPDATE
+    `parent_id` = VALUES(`parent_id`),
+    `menu_name` = VALUES(`menu_name`),
+    `menu_type` = VALUES(`menu_type`),
+    `path` = VALUES(`path`),
+    `route_name` = VALUES(`route_name`),
+    `component` = VALUES(`component`),
+    `icon` = VALUES(`icon`),
+    `permission_code` = VALUES(`permission_code`),
+    `sort_no` = VALUES(`sort_no`),
+    `visible` = VALUES(`visible`),
+    `status` = VALUES(`status`),
+    `remark` = VALUES(`remark`);
+
+INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`)
+VALUES
+    (1, 1001), (1, 1002), (1, 1003), (1, 1004), (1, 1005), (1, 1006),
+    (1, 1007), (1, 1008), (1, 1009), (1, 1010), (1, 1011), (1, 1012), (1, 1013), (1, 1014),
+    (2, 1001), (2, 1002), (2, 1003), (2, 1004), (2, 1005), (2, 1006);
 
 INSERT INTO `sys_system_setting`
 (`id`, `platform_name`, `support_email`, `service_phone`, `allow_register`, `maintenance_mode`, `version`)

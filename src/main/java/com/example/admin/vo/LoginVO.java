@@ -42,5 +42,9 @@ public class LoginVO {
 
     private List<String> authorities;
 
+    private List<String> permissions;
+
     private UserProfileVO userInfo;
+
+    private List<MenuVO> menus;
 }

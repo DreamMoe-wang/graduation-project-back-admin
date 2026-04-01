@@ -53,7 +53,7 @@ public class SecurityConfig {
                 .antMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .antMatchers(HttpMethod.POST, "/user").permitAll()
                 .antMatchers("/user/login", "/auth/login", "/error").permitAll()
-                .antMatchers("/trade/publish/*/approve", "/trade/publish/*/reject").hasRole("ADMIN")
+                .antMatchers("/trade/publish/*/approve", "/trade/publish/*/reject").hasAuthority("trade:review")
                 .antMatchers("/role/**", "/menu/**", "/dict/**", "/notice/**", "/log/**", "/setting/**").hasRole("ADMIN")
                 .antMatchers(HttpMethod.GET, "/user/page", "/user/list").hasRole("ADMIN")
                 .antMatchers(HttpMethod.PUT, "/user/**").hasRole("ADMIN")

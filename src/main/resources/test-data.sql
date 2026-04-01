@@ -16,11 +16,11 @@ SET FOREIGN_KEY_CHECKS = 0;
 INSERT INTO `sys_user`
 (`id`, `username`, `password`, `nickname`, `avatar`, `phone`, `email`, `status`, `last_login_time`, `deleted`)
 VALUES
-    (11, 'alice', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lqkkO9QS3TzCjH3rS', '爱丽丝', 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/avatar/alice.png', '13800138011', 'alice@example.com', 1, NOW(), 0),
-    (12, 'bob', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lqkkO9QS3TzCjH3rS', '鲍勃', 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/avatar/bob.png', '13800138012', 'bob@example.com', 1, NOW(), 0),
-    (13, 'carol', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lqkkO9QS3TzCjH3rS', '卡萝尔', 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/avatar/carol.png', '13800138013', 'carol@example.com', 1, NOW(), 0),
-    (14, 'david', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lqkkO9QS3TzCjH3rS', '大卫', 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/avatar/david.png', '13800138014', 'david@example.com', 1, NOW(), 0),
-    (15, 'erin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lqkkO9QS3TzCjH3rS', '艾琳', 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/avatar/erin.png', '13800138015', 'erin@example.com', 1, NOW(), 0)
+    (11, 'alice', '$2a$10$w1wcaJmdAapRPF.I/GhNdeUtbrdEZNfmuAdcRei7ETpOXbS56W9oq', '爱丽丝', 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/avatar/alice.png', '13800138011', 'alice@example.com', 1, NOW(), 0),
+    (12, 'bob', '$2a$10$w1wcaJmdAapRPF.I/GhNdeUtbrdEZNfmuAdcRei7ETpOXbS56W9oq', '鲍勃', 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/avatar/bob.png', '13800138012', 'bob@example.com', 1, NOW(), 0),
+    (13, 'carol', '$2a$10$w1wcaJmdAapRPF.I/GhNdeUtbrdEZNfmuAdcRei7ETpOXbS56W9oq', '卡萝尔', 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/avatar/carol.png', '13800138013', 'carol@example.com', 1, NOW(), 0),
+    (14, 'david', '$2a$10$w1wcaJmdAapRPF.I/GhNdeUtbrdEZNfmuAdcRei7ETpOXbS56W9oq', '大卫', 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/avatar/david.png', '13800138014', 'david@example.com', 1, NOW(), 0),
+    (15, 'erin', '$2a$10$w1wcaJmdAapRPF.I/GhNdeUtbrdEZNfmuAdcRei7ETpOXbS56W9oq', '艾琳', 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/avatar/erin.png', '13800138015', 'erin@example.com', 1, NOW(), 0)
 ON DUPLICATE KEY UPDATE
     `password` = VALUES(`password`),
     `nickname` = VALUES(`nickname`),
@@ -45,8 +45,6 @@ VALUES
 INSERT INTO `sys_module_item`
 (`id`, `module_name`, `name`, `code`, `status`, `description`, `create_time`, `update_time`)
 VALUES
-    (5001, 'menu', '系统管理', 'MENU_SYSTEM', 1, '系统管理菜单分组', '2026-03-20 10:00:00', '2026-03-20 10:00:00'),
-    (5002, 'menu', '交易管理', 'MENU_TRADE', 1, '交易管理菜单分组', '2026-03-20 10:10:00', '2026-03-20 10:10:00'),
     (5101, 'dict', '交易状态', 'DICT_TRADE_STATUS', 1, '交易状态字典配置', '2026-03-21 09:00:00', '2026-03-21 09:00:00'),
     (5102, 'dict', '订单状态', 'DICT_ORDER_STATUS', 1, '订单状态字典配置', '2026-03-21 09:10:00', '2026-03-21 09:10:00'),
     (5201, 'notice', '系统升级通知', 'NOTICE_UPGRADE', 1, '本周末进行系统升级维护', '2026-03-22 14:00:00', '2026-03-22 14:00:00'),

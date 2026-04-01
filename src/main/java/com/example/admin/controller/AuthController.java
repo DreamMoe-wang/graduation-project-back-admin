@@ -5,6 +5,7 @@ import com.example.admin.dto.LoginDTO;
 import com.example.admin.service.AuthService;
 import com.example.admin.vo.CurrentUserVO;
 import com.example.admin.vo.LoginVO;
+import com.example.admin.vo.MenuVO;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
+import java.util.List;
 
 /**
  * 认证控制器
@@ -38,5 +40,21 @@ public class AuthController {
     @GetMapping("/me")
     public Result<CurrentUserVO> me() {
         return Result.success(authService.currentUser());
+    }
+
+    /**
+     * 当前用户菜单
+     */
+    @GetMapping("/menus")
+    public Result<List<MenuVO>> menus() {
+        return Result.success(authService.currentMenus());
+    }
+
+    /**
+     * 当前用户权限标识
+     */
+    @GetMapping("/permissions")
+    public Result<List<String>> permissions() {
+        return Result.success(authService.currentPermissions());
     }
 }
