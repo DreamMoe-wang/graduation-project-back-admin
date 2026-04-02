@@ -45,6 +45,13 @@
         LIMIT 1
     </select>
 
+    <insert id="insertChatSessionUser" parameterType="com.example.admin.entity.ChatSessionUser" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO chat_session_user
+        (session_id, user_id, last_read_message_id, last_read_time, unread_count, create_time)
+        VALUES
+        (#{sessionId}, #{userId}, #{lastReadMessageId}, #{lastReadTime}, #{unreadCount}, NOW())
+    </insert>
+
     <update id="updateChatSessionUser" parameterType="com.example.admin.entity.ChatSessionUser">
         UPDATE chat_session_user
         SET session_id = #{sessionId},

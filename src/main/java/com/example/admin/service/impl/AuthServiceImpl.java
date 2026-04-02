@@ -20,7 +20,6 @@ import com.example.admin.vo.MenuVO;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
@@ -28,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * 认证服务实现
@@ -67,11 +67,9 @@ public class AuthServiceImpl implements AuthService {
         user.setLastLoginTime(LocalDateTime.now());
         userMapper.updateLastLoginTime(user.getId(), user.getLastLoginTime());
 
-        List<String> authorities = securityUser.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toList());
         List<String> permissions = menuService.getPermissionCodesByUserId(user.getId());
         List<Role> roles = getRoles(user.getId());
+        List<String> authorities = buildAuthorities(roles, permissions);
 
         return LoginVO.builder()
                 .userId(securityUser.getId())
@@ -103,6 +101,7 @@ public class AuthServiceImpl implements AuthService {
 
         List<Role> roles = getRoles(userId);
         List<String> permissions = menuService.getPermissionCodesByUserId(userId);
+        List<String> authorities = buildAuthorities(roles, permissions);
         return CurrentUserVO.builder()
                 .userId(user.getId())
                 .username(user.getUsername())
@@ -113,10 +112,7 @@ public class AuthServiceImpl implements AuthService {
                 .email(user.getEmail())
                 .roles(roles.stream().map(Role::getRoleCode).collect(Collectors.toList()))
                 .roleNames(roles.stream().map(Role::getRoleName).collect(Collectors.toList()))
-                .authorities(roles.stream()
-                        .map(Role::getRoleCode)
-                        .map(code -> code.startsWith("ROLE_") ? code : "ROLE_" + code)
-                        .collect(Collectors.toList()))
+                .authorities(authorities)
                 .permissions(permissions)
                 .userInfo(userProfileAssembler.toProfileWithRoles(user))
                 .menus(menuService.getCurrentMenuTree())
@@ -140,5 +136,16 @@ public class AuthServiceImpl implements AuthService {
         }
         List<Long> roleIds = userRoles.stream().map(UserRole::getRoleId).collect(Collectors.toList());
         return roleMapper.selectByIds(roleIds);
+    }
+
+    private List<String> buildAuthorities(List<Role> roles, List<String> permissions) {
+        return Stream.concat(
+                        roles.stream()
+                                .map(Role::getRoleCode)
+                                .map(code -> code.startsWith("ROLE_") ? code : "ROLE_" + code),
+                        permissions.stream().filter(StrUtil::isNotBlank)
+                )
+                .distinct()
+                .collect(Collectors.toList());
     }
 }

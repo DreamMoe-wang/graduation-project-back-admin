@@ -17,6 +17,11 @@ public interface ChatService {
     List<ChatSessionVO> getSessions(String keyword);
 
     /**
+     * 根据交易打开或创建私聊会话
+     */
+    ChatSessionVO openTradeSession(Long tradeId);
+
+    /**
      * 获取会话消息
      */
     List<ChatMessageVO> getMessages(Long sessionId);

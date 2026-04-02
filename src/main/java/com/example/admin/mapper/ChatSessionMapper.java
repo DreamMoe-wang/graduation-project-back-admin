@@ -12,5 +12,11 @@ public interface ChatSessionMapper {
 
     ChatSession selectById(@Param("id") Long id);
 
+    ChatSession selectPrivateSessionByPostAndUsers(@Param("postId") Long postId,
+                                                   @Param("userIdA") Long userIdA,
+                                                   @Param("userIdB") Long userIdB);
+
+    int insertChatSession(ChatSession chatSession);
+
     int updateChatSession(ChatSession chatSession);
 }

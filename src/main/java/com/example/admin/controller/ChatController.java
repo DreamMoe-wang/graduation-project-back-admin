@@ -36,6 +36,14 @@ public class ChatController {
     }
 
     /**
+     * 根据交易打开私聊会话
+     */
+    @PostMapping("/trade/{tradeId}/session")
+    public Result<ChatSessionVO> openTradeSession(@PathVariable Long tradeId) {
+        return Result.success(chatService.openTradeSession(tradeId));
+    }
+
+    /**
      * 获取会话消息
      */
     @GetMapping("/sessions/{sessionId}/messages")

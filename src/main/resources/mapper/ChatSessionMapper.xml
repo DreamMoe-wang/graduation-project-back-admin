@@ -22,6 +22,25 @@
         WHERE id = #{id}
     </select>
 
+    <select id="selectPrivateSessionByPostAndUsers" resultMap="ChatSessionResultMap">
+        SELECT cs.id, cs.session_type, cs.post_id, cs.order_id, cs.last_message_id, cs.last_message_time, cs.status, cs.create_time, cs.update_time
+        FROM chat_session cs
+                 INNER JOIN chat_session_user u1 ON cs.id = u1.session_id AND u1.user_id = #{userIdA}
+                 INNER JOIN chat_session_user u2 ON cs.id = u2.session_id AND u2.user_id = #{userIdB}
+        WHERE cs.post_id = #{postId}
+          AND cs.session_type = 1
+          AND cs.status = 1
+        ORDER BY cs.id DESC
+        LIMIT 1
+    </select>
+
+    <insert id="insertChatSession" parameterType="com.example.admin.entity.ChatSession" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO chat_session
+        (session_type, post_id, order_id, last_message_id, last_message_time, status, create_time, update_time)
+        VALUES
+        (#{sessionType}, #{postId}, #{orderId}, #{lastMessageId}, #{lastMessageTime}, #{status}, NOW(), NOW())
+    </insert>
+
     <update id="updateChatSession" parameterType="com.example.admin.entity.ChatSession">
         UPDATE chat_session
         SET session_type = #{sessionType},

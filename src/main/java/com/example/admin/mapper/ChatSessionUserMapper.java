@@ -20,5 +20,7 @@ public interface ChatSessionUserMapper {
 
     ChatSessionUser selectOtherMember(@Param("sessionId") Long sessionId, @Param("userId") Long userId);
 
+    int insertChatSessionUser(ChatSessionUser chatSessionUser);
+
     int updateChatSessionUser(ChatSessionUser chatSessionUser);
 }

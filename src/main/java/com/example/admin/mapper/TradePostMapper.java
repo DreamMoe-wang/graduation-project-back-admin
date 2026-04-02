@@ -19,13 +19,15 @@ public interface TradePostMapper {
                                @Param("publisherId") Long publisherId,
                                @Param("onlyOwner") boolean onlyOwner,
                                @Param("publicOrOwner") boolean publicOrOwner,
+                               @Param("receivableOnly") boolean receivableOnly,
                                @Param("offset") long offset,
                                @Param("pageSize") long pageSize);
 
     long countPage(@Param("query") TradeQueryDTO queryDTO,
                    @Param("publisherId") Long publisherId,
                    @Param("onlyOwner") boolean onlyOwner,
-                   @Param("publicOrOwner") boolean publicOrOwner);
+                   @Param("publicOrOwner") boolean publicOrOwner,
+                   @Param("receivableOnly") boolean receivableOnly);
 
     long countActivePosts();
 

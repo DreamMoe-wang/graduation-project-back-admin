@@ -60,6 +60,16 @@
         <if test="publicOrOwner">
             AND (status = 3 OR publisher_id = #{publisherId})
         </if>
+        <if test="receivableOnly">
+            AND status = 3
+            AND publisher_id != #{publisherId}
+            AND NOT EXISTS (
+                SELECT 1
+                FROM trade_order o
+                WHERE o.post_id = trade_post.id
+                  AND o.status IN (0, 1, 2)
+            )
+        </if>
     </sql>
 
     <select id="selectById" resultMap="TradePostResultMap">

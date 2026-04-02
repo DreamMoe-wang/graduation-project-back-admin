@@ -73,6 +73,15 @@
         WHERE status = 2
     </select>
 
+    <insert id="insertTradeOrder" parameterType="com.example.admin.entity.TradeOrder" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO trade_order
+        (order_no, post_id, publisher_id, receiver_id, amount, status, remark,
+         confirm_time, finish_time, cancel_time, cancel_reason, create_time, update_time)
+        VALUES
+        (#{orderNo}, #{postId}, #{publisherId}, #{receiverId}, #{amount}, #{status}, #{remark},
+         #{confirmTime}, #{finishTime}, #{cancelTime}, #{cancelReason}, NOW(), NOW())
+    </insert>
+
     <update id="updateTradeOrder" parameterType="com.example.admin.entity.TradeOrder">
         UPDATE trade_order
         SET order_no = #{orderNo},

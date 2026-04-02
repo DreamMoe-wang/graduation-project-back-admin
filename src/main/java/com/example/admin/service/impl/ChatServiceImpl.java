@@ -7,8 +7,10 @@ import com.example.admin.entity.ChatSession;
 import com.example.admin.entity.ChatSessionUser;
 import com.example.admin.entity.User;
 import com.example.admin.mapper.ChatMessageMapper;
+import com.example.admin.entity.TradePost;
 import com.example.admin.mapper.ChatSessionMapper;
 import com.example.admin.mapper.ChatSessionUserMapper;
+import com.example.admin.mapper.TradePostMapper;
 import com.example.admin.mapper.UserMapper;
 import com.example.admin.security.SecurityUtils;
 import com.example.admin.service.ChatService;
@@ -45,6 +47,9 @@ public class ChatServiceImpl implements ChatService {
     @Resource
     private UserMapper userMapper;
 
+    @Resource
+    private TradePostMapper tradePostMapper;
+
     @Override
     public List<ChatSessionVO> getSessions(String keyword) {
         Long currentUserId = currentUserId();
@@ -56,6 +61,41 @@ public class ChatServiceImpl implements ChatService {
                         || StrUtil.containsIgnoreCase(item.getLastMessage(), keyword))
                 .sorted(Comparator.comparing(ChatSessionVO::getTime, Comparator.nullsLast(String::compareTo)).reversed())
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public ChatSessionVO openTradeSession(Long tradeId) {
+        Long currentUserId = currentUserId();
+        TradePost tradePost = tradePostMapper.selectById(tradeId);
+        if (tradePost == null) {
+            throw new RuntimeException("交易不存在");
+        }
+        if (currentUserId.equals(tradePost.getPublisherId())) {
+            throw new RuntimeException("不能和自己发起私聊");
+        }
+
+        ChatSession session = chatSessionMapper.selectPrivateSessionByPostAndUsers(tradeId, currentUserId, tradePost.getPublisherId());
+        if (session == null) {
+            session = new ChatSession();
+            session.setSessionType(1);
+            session.setPostId(tradeId);
+            session.setStatus(1);
+            chatSessionMapper.insertChatSession(session);
+
+            ChatSessionUser currentMember = new ChatSessionUser();
+            currentMember.setSessionId(session.getId());
+            currentMember.setUserId(currentUserId);
+            currentMember.setUnreadCount(0);
+            chatSessionUserMapper.insertChatSessionUser(currentMember);
+
+            ChatSessionUser publisherMember = new ChatSessionUser();
+            publisherMember.setSessionId(session.getId());
+            publisherMember.setUserId(tradePost.getPublisherId());
+            publisherMember.setUnreadCount(0);
+            chatSessionUserMapper.insertChatSessionUser(publisherMember);
+        }
+
+        return buildSessionVO(session.getId(), currentUserId, 0);
     }
 
     @Override

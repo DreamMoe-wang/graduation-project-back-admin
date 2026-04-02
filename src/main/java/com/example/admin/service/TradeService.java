@@ -56,6 +56,11 @@ public interface TradeService {
     boolean rejectTrade(Long id, TradeReviewDTO reviewDTO);
 
     /**
+     * 交易大全直接接取发布单
+     */
+    boolean receiveTradePost(Long postId);
+
+    /**
      * 订单统计
      */
     TradeOrderStatsVO getOrderStats();

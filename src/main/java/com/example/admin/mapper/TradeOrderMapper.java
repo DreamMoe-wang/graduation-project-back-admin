@@ -31,5 +31,7 @@ public interface TradeOrderMapper {
 
     BigDecimal sumCompletedAmount();
 
+    int insertTradeOrder(TradeOrder tradeOrder);
+
     int updateTradeOrder(TradeOrder tradeOrder);
 }

@@ -61,11 +61,12 @@ public class TradeServiceImpl implements TradeService {
         TradeQueryDTO normalizedQuery = normalizeTradeQuery(queryDTO);
         Long currentUserId = currentUserId();
         boolean admin = isAdmin();
-        long total = tradePostMapper.countPage(normalizedQuery, currentUserId, !admin, false);
+        long total = tradePostMapper.countPage(normalizedQuery, currentUserId, !admin, false, false);
         List<TradeVO> records = tradePostMapper.selectPage(
                         normalizedQuery,
                         currentUserId,
                         !admin,
+                        false,
                         false,
                         offset(normalizedQuery.getPageNum(), normalizedQuery.getPageSize()),
                         pageSize(normalizedQuery.getPageSize()))
@@ -80,10 +81,14 @@ public class TradeServiceImpl implements TradeService {
         TradeQueryDTO normalizedQuery = normalizeTradeQuery(queryDTO);
         Long currentUserId = currentUserId();
         boolean admin = isAdmin();
-        long total = tradePostMapper.countPage(normalizedQuery, currentUserId, false, !admin);
+        if (!admin) {
+            normalizedQuery.setStatus(null);
+        }
+        long total = tradePostMapper.countPage(normalizedQuery, currentUserId, false, false, !admin);
         List<TradeVO> records = tradePostMapper.selectPage(
                         normalizedQuery,
                         currentUserId,
+                        false,
                         false,
                         !admin,
                         offset(normalizedQuery.getPageNum(), normalizedQuery.getPageSize()),
@@ -193,6 +198,52 @@ public class TradeServiceImpl implements TradeService {
     }
 
     @Override
+    public boolean receiveTradePost(Long postId) {
+        Long currentUserId = currentUserId();
+        TradePost tradePost = getTradePostById(postId);
+        if (tradePost.getStatus() == null || tradePost.getStatus() != 3) {
+            throw new RuntimeException("当前交易不可接取");
+        }
+        if (!isAdmin() && currentUserId.equals(tradePost.getPublisherId())) {
+            throw new AccessDeniedException("不能接取自己发布的交易");
+        }
+
+        TradeOrder latestOrder = tradeOrderMapper.selectLatestByPostId(postId);
+        TradeOrder order;
+        boolean createOrder = latestOrder == null || latestOrder.getStatus() == null || latestOrder.getStatus() == 3;
+        if (createOrder) {
+            order = new TradeOrder();
+            order.setOrderNo(generateOrderNo());
+            order.setPostId(tradePost.getId());
+            order.setPublisherId(tradePost.getPublisherId());
+            order.setAmount(tradePost.getPrice());
+            order.setRemark("用户从交易大全接取交易");
+        } else {
+            if (latestOrder.getStatus() == 1 || latestOrder.getStatus() == 2) {
+                throw new RuntimeException("当前交易已被接取");
+            }
+            order = latestOrder;
+        }
+
+        order.setReceiverId(currentUserId);
+        order.setStatus(1);
+        order.setConfirmTime(LocalDateTime.now());
+        order.setFinishTime(null);
+        order.setCancelTime(null);
+        order.setCancelReason(null);
+
+        boolean success = createOrder
+                ? tradeOrderMapper.insertTradeOrder(order) > 0
+                : tradeOrderMapper.updateTradeOrder(order) > 0;
+        if (success) {
+            tradePost.setStatus(4);
+            tradePostMapper.updateTradePost(tradePost);
+            eventPublisher.publish("trade.post.received", tradePost.getPostNo());
+        }
+        return success;
+    }
+
+    @Override
     public TradeOrderStatsVO getOrderStats() {
         Long currentUserId = currentUserId();
         boolean admin = isAdmin();
@@ -250,6 +301,11 @@ public class TradeServiceImpl implements TradeService {
 
         boolean success = tradeOrderMapper.updateTradeOrder(order) > 0;
         if (success) {
+            TradePost tradePost = tradePostMapper.selectById(order.getPostId());
+            if (tradePost != null) {
+                tradePost.setStatus(4);
+                tradePostMapper.updateTradePost(tradePost);
+            }
             eventPublisher.publish("trade.order.received", order.getOrderNo());
         }
         return success;
@@ -269,7 +325,7 @@ public class TradeServiceImpl implements TradeService {
 
         TradePost tradePost = tradePostMapper.selectById(order.getPostId());
         if (updated && tradePost != null) {
-            tradePost.setStatus(4);
+            tradePost.setStatus(5);
             tradePost.setOffShelfTime(LocalDateTime.now());
             tradePostMapper.updateTradePost(tradePost);
         }
@@ -295,6 +351,12 @@ public class TradeServiceImpl implements TradeService {
 
         boolean success = tradeOrderMapper.updateTradeOrder(order) > 0;
         if (success) {
+            TradePost tradePost = tradePostMapper.selectById(order.getPostId());
+            if (tradePost != null) {
+                tradePost.setStatus(3);
+                tradePost.setOffShelfTime(null);
+                tradePostMapper.updateTradePost(tradePost);
+            }
             eventPublisher.publish("trade.order.cancelled", order.getOrderNo());
         }
         return success;
@@ -482,6 +544,10 @@ public class TradeServiceImpl implements TradeService {
         return "TP" + System.currentTimeMillis();
     }
 
+    private String generateOrderNo() {
+        return "TO" + System.currentTimeMillis();
+    }
+
     private Integer parseTradeStatus(String status) {
         if (StrUtil.isBlank(status)) {
             return null;
@@ -495,14 +561,15 @@ public class TradeServiceImpl implements TradeService {
             case "rejected":
                 return 2;
             case "published":
-            case "trading":
             case "onshelf":
             case "on_shelf":
                 return 3;
+            case "trading":
+                return 4;
             case "offshelf":
             case "off_shelf":
             case "completed":
-                return 4;
+                return 5;
             default:
                 if (StrUtil.isNumeric(value)) {
                     return Integer.parseInt(value);
@@ -525,6 +592,8 @@ public class TradeServiceImpl implements TradeService {
             case 3:
                 return "published";
             case 4:
+                return "trading";
+            case 5:
                 return "completed";
             default:
                 return String.valueOf(status);

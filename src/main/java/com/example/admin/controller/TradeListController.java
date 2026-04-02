@@ -7,6 +7,7 @@ import com.example.admin.service.TradeService;
 import com.example.admin.vo.TradeVO;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -39,6 +40,15 @@ public class TradeListController {
     @GetMapping("/{id}")
     public Result<TradeVO> detail(@PathVariable Long id) {
         return Result.success(tradeService.getTradeDetail(id));
+    }
+
+    /**
+     * 接取交易
+     */
+    @PostMapping("/{id}/receive")
+    public Result<Boolean> receive(@PathVariable Long id) {
+        boolean success = tradeService.receiveTradePost(id);
+        return success ? Result.success("接取成功", true) : Result.error("接取失败");
     }
 
     /**
