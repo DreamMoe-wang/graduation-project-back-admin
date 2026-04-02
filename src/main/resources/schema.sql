@@ -290,6 +290,7 @@ VALUES
     (1011, 0, '通知公告', 2, '/notice', 'NoticeManage', 'notice/NoticeManage', 'Bell', 'notice:manage', 8, 1, 1, '通知公告页面'),
     (1012, 0, '日志管理', 2, '/log', 'LogManage', 'log/LogManage', 'Notebook', 'log:manage', 9, 1, 1, '日志管理页面'),
     (1013, 0, '系统设置', 2, '/setting', 'SystemSetting', 'setting/SystemSetting', 'Setting', 'setting:manage', 10, 1, 1, '系统设置页面'),
+    (1030, 0, '个人中心', 2, '/profile', 'ProfileCenter', 'profile/ProfileCenter', 'UserFilled', 'profile:view', 11, 1, 1, '当前用户个人信息中心'),
     (1014, 1002, '交易审核', 3, NULL, NULL, NULL, NULL, 'trade:review', 99, 0, 1, '交易审核按钮权限')
 ON DUPLICATE KEY UPDATE
     `parent_id` = VALUES(`parent_id`),
@@ -308,8 +309,8 @@ ON DUPLICATE KEY UPDATE
 INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`)
 VALUES
     (1, 1001), (1, 1002), (1, 1003), (1, 1004), (1, 1005), (1, 1006),
-    (1, 1007), (1, 1008), (1, 1009), (1, 1010), (1, 1011), (1, 1012), (1, 1013), (1, 1014),
-    (2, 1001), (2, 1002), (2, 1003), (2, 1004), (2, 1005), (2, 1006);
+    (1, 1007), (1, 1008), (1, 1009), (1, 1010), (1, 1011), (1, 1012), (1, 1013), (1, 1014), (1, 1030),
+    (2, 1001), (2, 1002), (2, 1003), (2, 1004), (2, 1005), (2, 1006), (2, 1030);
 
 INSERT INTO `sys_system_setting`
 (`id`, `platform_name`, `support_email`, `service_phone`, `allow_register`, `maintenance_mode`, `version`)
@@ -323,4 +324,31 @@ ON DUPLICATE KEY UPDATE
     `maintenance_mode` = VALUES(`maintenance_mode`),
     `version` = VALUES(`version`);
 
+
+CREATE TABLE IF NOT EXISTS `sys_user_profile` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `user_id` BIGINT NOT NULL COMMENT '用户ID',
+    `real_name` VARCHAR(50) DEFAULT NULL COMMENT '真实姓名',
+    `gender` TINYINT NOT NULL DEFAULT 0 COMMENT '性别：0-未知，1-男，2-女',
+    `birthday` DATE DEFAULT NULL COMMENT '生日',
+    `city_name` VARCHAR(50) DEFAULT NULL COMMENT '城市',
+    `area_name` VARCHAR(50) DEFAULT NULL COMMENT '区域',
+    `address` VARCHAR(255) DEFAULT NULL COMMENT '详细地址',
+    `bio` VARCHAR(500) DEFAULT NULL COMMENT '个人简介',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_sys_user_profile_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户扩展资料表';
+
+INSERT INTO `sys_user_profile` (`id`, `user_id`, `real_name`, `gender`, `city_name`, `area_name`, `address`, `bio`)
+VALUES
+    (1, 1, '系统管理员', 1, '北京', '海淀区', '中关村软件园', '负责平台审核与管理')
+ON DUPLICATE KEY UPDATE
+    `real_name` = VALUES(`real_name`),
+    `gender` = VALUES(`gender`),
+    `city_name` = VALUES(`city_name`),
+    `area_name` = VALUES(`area_name`),
+    `address` = VALUES(`address`),
+    `bio` = VALUES(`bio`);
 SET FOREIGN_KEY_CHECKS = 1;

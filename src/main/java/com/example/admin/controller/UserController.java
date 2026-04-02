@@ -5,6 +5,7 @@ import com.example.admin.common.PageResult;
 import com.example.admin.common.Result;
 import com.example.admin.dto.LoginDTO;
 import com.example.admin.dto.UserDTO;
+import com.example.admin.dto.UserProfileUpdateDTO;
 import com.example.admin.entity.User;
 import com.example.admin.service.AuthService;
 import com.example.admin.service.UserService;
@@ -32,13 +33,29 @@ public class UserController {
      * 用户登录
      */
     @PostMapping("/login")
-    public Result<String> login(@RequestParam String username, 
-                                 @RequestParam String password) {
+    public Result<String> login(@RequestParam String username,
+                                @RequestParam String password) {
         LoginDTO loginDTO = new LoginDTO();
         loginDTO.setUsername(username);
         loginDTO.setPassword(password);
         String token = authService.login(loginDTO).getToken();
         return Result.success("登录成功", token);
+    }
+
+    /**
+     * 当前用户个人信息
+     */
+    @GetMapping("/profile/current")
+    public Result<UserProfileVO> currentProfile() {
+        return Result.success(userService.getCurrentProfile());
+    }
+
+    /**
+     * 修改当前用户个人信息
+     */
+    @PutMapping("/profile/current")
+    public Result<UserProfileVO> updateCurrentProfile(@RequestBody @Validated UserProfileUpdateDTO updateDTO) {
+        return Result.success("保存成功", userService.updateCurrentProfile(updateDTO));
     }
 
     /**
@@ -83,8 +100,8 @@ public class UserController {
      * 更新用户
      */
     @PutMapping("/{id}")
-    public Result<Boolean> update(@PathVariable Long id, 
-                                   @RequestBody @Validated UserDTO userDTO) {
+    public Result<Boolean> update(@PathVariable Long id,
+                                  @RequestBody @Validated UserDTO userDTO) {
         boolean success = userService.update(id, userDTO);
         return success ? Result.success("更新成功", true) : Result.error("更新失败");
     }

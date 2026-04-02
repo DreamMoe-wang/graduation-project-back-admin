@@ -32,6 +32,20 @@ public class UserProfileVO {
 
     private String email;
 
+    private String realName;
+
+    private Integer gender;
+
+    private String birthday;
+
+    private String cityName;
+
+    private String areaName;
+
+    private String address;
+
+    private String bio;
+
     private List<String> roles;
 
     private List<String> roleNames;

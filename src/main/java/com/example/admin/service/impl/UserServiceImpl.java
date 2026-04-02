@@ -5,11 +5,14 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.admin.common.assembler.UserProfileAssembler;
 import com.example.admin.dto.LoginDTO;
 import com.example.admin.dto.UserDTO;
+import com.example.admin.dto.UserProfileUpdateDTO;
 import com.example.admin.entity.Role;
 import com.example.admin.entity.User;
+import com.example.admin.entity.UserProfile;
 import com.example.admin.entity.UserRole;
 import com.example.admin.mapper.RoleMapper;
 import com.example.admin.mapper.UserMapper;
+import com.example.admin.mapper.UserProfileMapper;
 import com.example.admin.mapper.UserRoleMapper;
 import com.example.admin.security.SecurityUtils;
 import com.example.admin.service.AuthService;
@@ -21,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -33,6 +37,9 @@ public class UserServiceImpl implements UserService {
 
     @Resource
     private UserMapper userMapper;
+
+    @Resource
+    private UserProfileMapper userProfileMapper;
 
     @Resource
     private UserRoleMapper userRoleMapper;
@@ -61,7 +68,37 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("用户不存在");
         }
         assertUserAccessible(user);
-        return userProfileAssembler.toProfileWithRoles(user);
+        return buildUserProfileVO(user, true);
+    }
+
+    @Override
+    public UserProfileVO getCurrentProfile() {
+        User user = requireCurrentUser();
+        return buildUserProfileVO(user, true);
+    }
+
+    @Override
+    public UserProfileVO updateCurrentProfile(UserProfileUpdateDTO updateDTO) {
+        User user = requireCurrentUser();
+        checkEmailUnique(updateDTO.getEmail(), user.getId());
+
+        user.setNickname(StrUtil.blankToDefault(updateDTO.getNickname(), user.getUsername()));
+        user.setAvatar(updateDTO.getAvatar());
+        user.setPhone(updateDTO.getPhone());
+        user.setEmail(updateDTO.getEmail());
+        userMapper.updateUser(user);
+
+        UserProfile userProfile = ensureUserProfile(user.getId());
+        userProfile.setRealName(updateDTO.getRealName());
+        userProfile.setGender(updateDTO.getGender());
+        userProfile.setBirthday(parseBirthday(updateDTO.getBirthday()));
+        userProfile.setCityName(updateDTO.getCityName());
+        userProfile.setAreaName(updateDTO.getAreaName());
+        userProfile.setAddress(updateDTO.getAddress());
+        userProfile.setBio(updateDTO.getBio());
+        userProfileMapper.updateUserProfile(userProfile);
+
+        return buildUserProfileVO(userMapper.selectById(user.getId()), true);
     }
 
     @Override
@@ -105,6 +142,7 @@ public class UserServiceImpl implements UserService {
         boolean inserted = userMapper.insertUser(user) > 0;
         if (inserted) {
             bindDefaultUserRole(user.getId());
+            createEmptyUserProfile(user.getId());
         }
         return inserted;
     }
@@ -194,5 +232,49 @@ public class UserServiceImpl implements UserService {
         if (!currentUserId.equals(user.getId())) {
             throw new AccessDeniedException("无权查看该用户信息");
         }
+    }
+
+    private User requireCurrentUser() {
+        Long currentUserId = SecurityUtils.requireCurrentUserId();
+        User user = getById(currentUserId);
+        if (user == null) {
+            throw new RuntimeException("当前用户不存在");
+        }
+        return user;
+    }
+
+    private UserProfile ensureUserProfile(Long userId) {
+        UserProfile userProfile = userProfileMapper.selectByUserId(userId);
+        if (userProfile != null) {
+            return userProfile;
+        }
+        createEmptyUserProfile(userId);
+        return userProfileMapper.selectByUserId(userId);
+    }
+
+    private void createEmptyUserProfile(Long userId) {
+        UserProfile userProfile = new UserProfile();
+        userProfile.setUserId(userId);
+        userProfile.setGender(0);
+        userProfileMapper.insertUserProfile(userProfile);
+    }
+
+    private LocalDate parseBirthday(String birthday) {
+        return StrUtil.isBlank(birthday) ? null : LocalDate.parse(birthday);
+    }
+
+    private UserProfileVO buildUserProfileVO(User user, boolean includeRoles) {
+        UserProfileVO profileVO = includeRoles
+                ? userProfileAssembler.toProfileWithRoles(user)
+                : userProfileAssembler.toProfile(user);
+        UserProfile userProfile = ensureUserProfile(user.getId());
+        profileVO.setRealName(userProfile.getRealName());
+        profileVO.setGender(userProfile.getGender());
+        profileVO.setBirthday(userProfile.getBirthday() == null ? null : userProfile.getBirthday().toString());
+        profileVO.setCityName(userProfile.getCityName());
+        profileVO.setAreaName(userProfile.getAreaName());
+        profileVO.setAddress(userProfile.getAddress());
+        profileVO.setBio(userProfile.getBio());
+        return profileVO;
     }
 }

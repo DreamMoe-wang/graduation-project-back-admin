@@ -204,4 +204,21 @@ ON DUPLICATE KEY UPDATE
     `is_recall` = VALUES(`is_recall`),
     `create_time` = VALUES(`create_time`);
 
+
+INSERT INTO `sys_user_profile`
+(`id`, `user_id`, `real_name`, `gender`, `birthday`, `city_name`, `area_name`, `address`, `bio`)
+VALUES
+    (1, 11, 'Alice Wang', 2, '2000-03-18', '北京', '海淀区', '中关村软件园一期', '喜欢整理任务流程和做计划。'),
+    (2, 12, 'Bob Li', 1, '1999-11-05', '北京', '朝阳区', '望京 SOHO', '擅长数码维修和上门服务。'),
+    (3, 13, 'Carol Chen', 2, '2001-07-12', '北京', '昌平区', '沙河高教园', '校内跑腿和快递代取都很熟。'),
+    (4, 14, 'David Zhang', 1, '1998-09-22', '北京', '丰台区', '科技园区', '专注演示文稿与设计美化。'),
+    (5, 15, 'Erin Liu', 2, '2000-01-08', '北京', '西城区', '金融街附近', '有家教和学习辅导经验。')
+ON DUPLICATE KEY UPDATE
+    `real_name` = VALUES(`real_name`),
+    `gender` = VALUES(`gender`),
+    `birthday` = VALUES(`birthday`),
+    `city_name` = VALUES(`city_name`),
+    `area_name` = VALUES(`area_name`),
+    `address` = VALUES(`address`),
+    `bio` = VALUES(`bio`);
 SET FOREIGN_KEY_CHECKS = 1;

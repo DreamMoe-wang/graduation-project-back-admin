@@ -31,6 +31,8 @@ public interface ChatService {
      */
     boolean sendMessage(Long sessionId, ChatMessageSendDTO sendDTO);
 
+    boolean sendMessageByUser(Long sessionId, Long senderUserId, ChatMessageSendDTO sendDTO);
+
     /**
      * 标记已读
      */

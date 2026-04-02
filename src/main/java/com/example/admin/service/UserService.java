@@ -2,6 +2,7 @@ package com.example.admin.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.admin.dto.UserDTO;
+import com.example.admin.dto.UserProfileUpdateDTO;
 import com.example.admin.entity.User;
 import com.example.admin.vo.UserProfileVO;
 
@@ -21,6 +22,16 @@ public interface UserService {
      * 根据 ID 查询用户资料
      */
     UserProfileVO getProfileById(Long id);
+
+    /**
+     * 获取当前登录用户资料
+     */
+    UserProfileVO getCurrentProfile();
+
+    /**
+     * 修改当前登录用户资料
+     */
+    UserProfileVO updateCurrentProfile(UserProfileUpdateDTO updateDTO);
 
     /**
      * 根据用户名查询用户

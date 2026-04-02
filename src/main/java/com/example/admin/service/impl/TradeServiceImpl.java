@@ -372,7 +372,7 @@ public class TradeServiceImpl implements TradeService {
         return TradeVO.builder()
                 .id(tradePost.getId())
                 .title(tradePost.getTitle())
-                .clientName(tradePost.getContactName())
+                .clientName(buildDisplayName(publisher))
                 .clientPhone(tradePost.getContactPhone())
                 .workerName(receiver == null ? null : buildDisplayName(receiver))
                 .workerPhone(receiver == null ? null : receiver.getPhone())
@@ -466,8 +466,9 @@ public class TradeServiceImpl implements TradeService {
         tradePost.setTitle(tradeSaveDTO.getTitle());
         tradePost.setContent(tradeSaveDTO.getDescription());
         tradePost.setPrice(tradeSaveDTO.getAmount());
-        tradePost.setContactName(tradeSaveDTO.getClientName());
-        tradePost.setContactPhone(tradeSaveDTO.getClientPhone());
+        User publisher = userMapper.selectById(tradePost.getPublisherId());
+        tradePost.setContactName(buildDisplayName(publisher));
+        tradePost.setContactPhone(publisher == null ? tradeSaveDTO.getClientPhone() : publisher.getPhone());
     }
 
     private void saveReviewRecord(Long postId, Long reviewerId, Integer reviewResult, String reviewRemark) {

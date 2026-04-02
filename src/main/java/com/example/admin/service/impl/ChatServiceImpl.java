@@ -16,6 +16,7 @@ import com.example.admin.security.SecurityUtils;
 import com.example.admin.service.ChatService;
 import com.example.admin.vo.ChatMessageVO;
 import com.example.admin.vo.ChatSessionVO;
+import com.example.admin.websocket.ChatRealtimeNotifier;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
@@ -49,6 +50,9 @@ public class ChatServiceImpl implements ChatService {
 
     @Resource
     private TradePostMapper tradePostMapper;
+
+    @Resource
+    private ChatRealtimeNotifier chatRealtimeNotifier;
 
     @Override
     public List<ChatSessionVO> getSessions(String keyword) {
@@ -110,33 +114,53 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public boolean sendMessage(Long sessionId, ChatMessageSendDTO sendDTO) {
         Long currentUserId = currentUserId();
-        ensureSessionAccessible(sessionId, currentUserId);
+        return sendMessageByUser(sessionId, currentUserId, sendDTO);
+    }
+
+    @Override
+    public boolean sendMessageByUser(Long sessionId, Long senderUserId, ChatMessageSendDTO sendDTO) {
+        if (senderUserId == null || senderUserId <= 0) {
+            throw new RuntimeException("鏈幏鍙栧埌褰撳墠鐢ㄦ埛");
+        }
+        String content = sendDTO == null ? null : StrUtil.trim(sendDTO.getContent());
+        if (StrUtil.isBlank(content)) {
+            throw new RuntimeException("娑堟伅鍐呭涓嶈兘涓虹┖");
+        }
+        ensureSessionAccessible(sessionId, senderUserId);
 
         ChatMessage message = new ChatMessage();
         message.setSessionId(sessionId);
-        message.setSenderId(currentUserId);
+        message.setSenderId(senderUserId);
         message.setMessageType(1);
-        message.setContent(sendDTO.getContent().trim());
+        message.setContent(content);
         message.setIsRecall(0);
 
         int inserted = chatMessageMapper.insertChatMessage(message);
         if (inserted > 0) {
+            LocalDateTime now = LocalDateTime.now();
             ChatSession session = chatSessionMapper.selectById(sessionId);
             session.setLastMessageId(message.getId());
-            session.setLastMessageTime(LocalDateTime.now());
+            session.setLastMessageTime(now);
             chatSessionMapper.updateChatSession(session);
 
             List<ChatSessionUser> members = chatSessionUserMapper.selectBySessionId(sessionId);
             for (ChatSessionUser member : members) {
-                if (currentUserId.equals(member.getUserId())) {
+                if (senderUserId.equals(member.getUserId())) {
                     member.setLastReadMessageId(message.getId());
-                    member.setLastReadTime(LocalDateTime.now());
+                    member.setLastReadTime(now);
                     member.setUnreadCount(0);
                 } else {
                     member.setUnreadCount(member.getUnreadCount() == null ? 1 : member.getUnreadCount() + 1);
                 }
                 chatSessionUserMapper.updateChatSessionUser(member);
             }
+
+            List<Long> receiverIds = members.stream()
+                    .map(ChatSessionUser::getUserId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .collect(Collectors.toList());
+            chatRealtimeNotifier.notifySessionUpdated(sessionId, senderUserId, receiverIds);
         }
         return inserted > 0;
     }
