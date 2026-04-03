@@ -3,6 +3,7 @@ package com.example.admin.security;
 import cn.hutool.core.util.StrUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -15,6 +16,8 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * JWT 认证过滤器
@@ -43,12 +46,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (StrUtil.isNotBlank(token)
                 && jwtTokenService.validateToken(token)
                 && SecurityContextHolder.getContext().getAuthentication() == null) {
-            String username = jwtTokenService.getUsername(token);
-            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-
-            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                    userDetails, null, userDetails.getAuthorities());
-            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            UsernamePasswordAuthenticationToken authentication = buildAuthenticationByToken(token, request);
+            if (authentication == null) {
+                String username = jwtTokenService.getUsername(token);
+                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                authentication = new UsernamePasswordAuthenticationToken(
+                        userDetails, null, userDetails.getAuthorities());
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            }
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
 
@@ -64,5 +69,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return header.substring(prefix.length());
         }
         return header;
+    }
+
+    private UsernamePasswordAuthenticationToken buildAuthenticationByToken(String token, HttpServletRequest request) {
+        Long userId = jwtTokenService.getUserId(token);
+        String username = jwtTokenService.getUsername(token);
+        if (userId == null || userId <= 0 || StrUtil.isBlank(username)) {
+            return null;
+        }
+
+        List<String> authorityCodes = jwtTokenService.getAuthorities(token);
+        if (authorityCodes == null || authorityCodes.isEmpty()) {
+            return null;
+        }
+
+        List<SimpleGrantedAuthority> authorities = authorityCodes.stream()
+                .map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toList());
+        SecurityUser securityUser = new SecurityUser(
+                userId,
+                username,
+                "",
+                StrUtil.blankToDefault(jwtTokenService.getNickname(token), username),
+                true,
+                authorities
+        );
+
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                securityUser, null, securityUser.getAuthorities());
+        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        return authentication;
     }
 }

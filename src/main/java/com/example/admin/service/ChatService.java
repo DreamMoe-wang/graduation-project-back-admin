@@ -37,4 +37,9 @@ public interface ChatService {
      * 标记已读
      */
     boolean markSessionRead(Long sessionId);
+
+    /**
+     * 删除当前用户会话
+     */
+    boolean deleteSession(Long sessionId);
 }

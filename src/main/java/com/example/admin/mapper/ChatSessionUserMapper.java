@@ -23,4 +23,8 @@ public interface ChatSessionUserMapper {
     int insertChatSessionUser(ChatSessionUser chatSessionUser);
 
     int updateChatSessionUser(ChatSessionUser chatSessionUser);
+
+    int deleteBySessionIdAndUserId(@Param("sessionId") Long sessionId, @Param("userId") Long userId);
+
+    long countBySessionId(@Param("sessionId") Long sessionId);
 }

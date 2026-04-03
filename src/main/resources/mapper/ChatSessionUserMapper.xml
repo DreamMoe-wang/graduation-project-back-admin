@@ -62,4 +62,16 @@
         WHERE id = #{id}
     </update>
 
+    <delete id="deleteBySessionIdAndUserId">
+        DELETE FROM chat_session_user
+        WHERE session_id = #{sessionId}
+          AND user_id = #{userId}
+    </delete>
+
+    <select id="countBySessionId" resultType="long">
+        SELECT COUNT(1)
+        FROM chat_session_user
+        WHERE session_id = #{sessionId}
+    </select>
+
 </mapper>

@@ -178,17 +178,41 @@ public class ChatServiceImpl implements ChatService {
         return chatSessionUserMapper.updateChatSessionUser(sessionUser) > 0;
     }
 
+    @Override
+    public boolean deleteSession(Long sessionId) {
+        Long currentUserId = currentUserId();
+        ensureSessionAccessible(sessionId, currentUserId);
+
+        int deleted = chatSessionUserMapper.deleteBySessionIdAndUserId(sessionId, currentUserId);
+        if (deleted <= 0) {
+            return false;
+        }
+
+        long remainCount = chatSessionUserMapper.countBySessionId(sessionId);
+        if (remainCount <= 0) {
+            ChatSession session = chatSessionMapper.selectById(sessionId);
+            if (session != null && (session.getStatus() == null || session.getStatus() != 0)) {
+                session.setStatus(0);
+                chatSessionMapper.updateChatSession(session);
+            }
+        }
+        return true;
+    }
+
     private ChatSessionVO buildSessionVO(Long sessionId, Long currentUserId, Integer unreadCount) {
         ChatSession session = chatSessionMapper.selectById(sessionId);
         if (session == null) {
             return null;
         }
+        TradePost tradePost = session.getPostId() == null ? null : tradePostMapper.selectById(session.getPostId());
         ChatSessionUser otherMember = chatSessionUserMapper.selectOtherMember(sessionId, currentUserId);
         User otherUser = otherMember == null ? null : userMapper.selectById(otherMember.getUserId());
         ChatMessage lastMessage = session.getLastMessageId() == null ? null : chatMessageMapper.selectById(session.getLastMessageId());
 
         return ChatSessionVO.builder()
                 .id(session.getId())
+                .tradeId(session.getPostId())
+                .tradeTitle(tradePost == null ? null : tradePost.getTitle())
                 .name(otherUser == null ? "未知用户" : buildDisplayName(otherUser))
                 .avatar(otherUser == null ? null : otherUser.getAvatar())
                 .lastMessage(lastMessage == null ? "" : lastMessage.getContent())

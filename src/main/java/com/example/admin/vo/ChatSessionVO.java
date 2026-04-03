@@ -16,6 +16,10 @@ public class ChatSessionVO {
 
     private Long id;
 
+    private Long tradeId;
+
+    private String tradeTitle;
+
     private String name;
 
     private String avatar;

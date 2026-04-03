@@ -466,9 +466,25 @@ public class TradeServiceImpl implements TradeService {
         tradePost.setTitle(tradeSaveDTO.getTitle());
         tradePost.setContent(tradeSaveDTO.getDescription());
         tradePost.setPrice(tradeSaveDTO.getAmount());
-        User publisher = userMapper.selectById(tradePost.getPublisherId());
-        tradePost.setContactName(buildDisplayName(publisher));
-        tradePost.setContactPhone(publisher == null ? tradeSaveDTO.getClientPhone() : publisher.getPhone());
+        User publisher = tradePost.getPublisherId() == null ? null : userMapper.selectById(tradePost.getPublisherId());
+
+        String resolvedContactName = StrUtil.firstNonBlank(
+                StrUtil.trim(tradeSaveDTO.getClientName()),
+                buildDisplayName(publisher),
+                tradePost.getContactName()
+        );
+        String resolvedContactPhone = StrUtil.firstNonBlank(
+                StrUtil.trim(publisher == null ? null : publisher.getPhone()),
+                StrUtil.trim(tradeSaveDTO.getClientPhone()),
+                StrUtil.trim(tradePost.getContactPhone())
+        );
+
+        if (StrUtil.isBlank(resolvedContactPhone)) {
+            throw new RuntimeException("委托人联系电话不能为空");
+        }
+
+        tradePost.setContactName(resolvedContactName);
+        tradePost.setContactPhone(resolvedContactPhone);
     }
 
     private void saveReviewRecord(Long postId, Long reviewerId, Integer reviewResult, String reviewRemark) {

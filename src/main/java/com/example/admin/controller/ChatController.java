@@ -6,6 +6,7 @@ import com.example.admin.service.ChatService;
 import com.example.admin.vo.ChatMessageVO;
 import com.example.admin.vo.ChatSessionVO;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -68,5 +69,14 @@ public class ChatController {
     public Result<Boolean> read(@PathVariable Long sessionId) {
         boolean success = chatService.markSessionRead(sessionId);
         return success ? Result.success("操作成功", true) : Result.error("操作失败");
+    }
+
+    /**
+     * 删除当前用户会话
+     */
+    @DeleteMapping("/sessions/{sessionId}")
+    public Result<Boolean> deleteSession(@PathVariable Long sessionId) {
+        boolean success = chatService.deleteSession(sessionId);
+        return success ? Result.success("删除成功", true) : Result.error("删除失败");
     }
 }

@@ -22,6 +22,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.time.LocalDate;
@@ -74,13 +75,16 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserProfileVO getCurrentProfile() {
         User user = requireCurrentUser();
-        return buildUserProfileVO(user, true);
+        return buildUserProfileVO(user, false);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public UserProfileVO updateCurrentProfile(UserProfileUpdateDTO updateDTO) {
         User user = requireCurrentUser();
-        checkEmailUnique(updateDTO.getEmail(), user.getId());
+        if (!StrUtil.equals(updateDTO.getEmail(), user.getEmail())) {
+            checkEmailUnique(updateDTO.getEmail(), user.getId());
+        }
 
         user.setNickname(StrUtil.blankToDefault(updateDTO.getNickname(), user.getUsername()));
         user.setAvatar(updateDTO.getAvatar());
@@ -98,7 +102,7 @@ public class UserServiceImpl implements UserService {
         userProfile.setBio(updateDTO.getBio());
         userProfileMapper.updateUserProfile(userProfile);
 
-        return buildUserProfileVO(userMapper.selectById(user.getId()), true);
+        return buildUserProfileVO(user, false);
     }
 
     @Override
