@@ -34,6 +34,13 @@
         LIMIT 1
     </select>
 
+    <select id="selectByOrderId" resultMap="ChatSessionResultMap">
+        SELECT id, session_type, post_id, order_id, last_message_id, last_message_time, status, create_time, update_time
+        FROM chat_session
+        WHERE order_id = #{orderId}
+        LIMIT 1
+    </select>
+
     <insert id="insertChatSession" parameterType="com.example.admin.entity.ChatSession" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO chat_session
         (session_type, post_id, order_id, last_message_id, last_message_time, status, create_time, update_time)

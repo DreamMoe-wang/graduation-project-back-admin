@@ -14,12 +14,13 @@
         <result column="area_name" property="areaName"/>
         <result column="address" property="address"/>
         <result column="bio" property="bio"/>
+        <result column="wallet_balance" property="walletBalance"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
 
     <select id="selectByUserId" resultMap="UserProfileResultMap">
-        SELECT id, user_id, real_name, gender, birthday, city_name, area_name, address, bio, create_time, update_time
+        SELECT id, user_id, real_name, gender, birthday, city_name, area_name, address, bio, wallet_balance, create_time, update_time
         FROM sys_user_profile
         WHERE user_id = #{userId}
         LIMIT 1
@@ -27,9 +28,9 @@
 
     <insert id="insertUserProfile" parameterType="com.example.admin.entity.UserProfile" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO sys_user_profile
-        (user_id, real_name, gender, birthday, city_name, area_name, address, bio, create_time, update_time)
+        (user_id, real_name, gender, birthday, city_name, area_name, address, bio, wallet_balance, create_time, update_time)
         VALUES
-        (#{userId}, #{realName}, #{gender}, #{birthday}, #{cityName}, #{areaName}, #{address}, #{bio}, NOW(), NOW())
+        (#{userId}, #{realName}, #{gender}, #{birthday}, #{cityName}, #{areaName}, #{address}, #{bio}, #{walletBalance}, NOW(), NOW())
     </insert>
 
     <update id="updateUserProfile" parameterType="com.example.admin.entity.UserProfile">
@@ -43,6 +44,13 @@
             bio = #{bio},
             update_time = NOW()
         WHERE id = #{id}
+    </update>
+
+    <update id="increaseWalletBalance">
+        UPDATE sys_user_profile
+        SET wallet_balance = COALESCE(wallet_balance, 0) + #{delta},
+            update_time = NOW()
+        WHERE user_id = #{userId}
     </update>
 
 </mapper>

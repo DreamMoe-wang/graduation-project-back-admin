@@ -18,6 +18,8 @@ public class TradeOrderVO {
 
     private Long id;
 
+    private Long postId;
+
     private String orderNo;
 
     private String title;
@@ -35,4 +37,12 @@ public class TradeOrderVO {
     private String status;
 
     private String statusText;
+
+    private String payStatus;
+
+    private String payStatusText;
+
+    private String payGateway;
+
+    private String payTime;
 }

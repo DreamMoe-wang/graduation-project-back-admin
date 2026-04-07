@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -45,6 +46,10 @@ public class UserProfileVO {
     private String address;
 
     private String bio;
+
+    private BigDecimal walletBalance;
+
+    private List<Long> roleIds;
 
     private List<String> roles;
 

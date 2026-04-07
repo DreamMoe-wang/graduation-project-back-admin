@@ -45,8 +45,6 @@ VALUES
 INSERT INTO `sys_module_item`
 (`id`, `module_name`, `name`, `code`, `status`, `description`, `create_time`, `update_time`)
 VALUES
-    (5101, 'dict', '交易状态', 'DICT_TRADE_STATUS', 1, '交易状态字典配置', '2026-03-21 09:00:00', '2026-03-21 09:00:00'),
-    (5102, 'dict', '订单状态', 'DICT_ORDER_STATUS', 1, '订单状态字典配置', '2026-03-21 09:10:00', '2026-03-21 09:10:00'),
     (5201, 'notice', '系统升级通知', 'NOTICE_UPGRADE', 1, '本周末进行系统升级维护', '2026-03-22 14:00:00', '2026-03-22 14:00:00'),
     (5202, 'notice', '测试公告', 'NOTICE_TEST', 1, '用于前端联调展示的公告数据', '2026-03-22 14:15:00', '2026-03-22 14:15:00'),
     (5301, 'log', '用户登录日志', 'LOG_LOGIN', 1, '记录后台用户登录行为', '2026-03-23 08:00:00', '2026-03-23 08:00:00'),
@@ -59,15 +57,19 @@ ON DUPLICATE KEY UPDATE
     `update_time` = VALUES(`update_time`);
 
 INSERT INTO `sys_system_setting`
-(`id`, `platform_name`, `support_email`, `service_phone`, `allow_register`, `maintenance_mode`, `version`)
+(`id`, `platform_name`, `support_email`, `service_phone`, `allow_register`, `maintenance_mode`, `theme_color`, `theme_mode`, `font_size`, `language`, `version`)
 VALUES
-    (1, '同城任务后台管理系统', 'support@example.com', '400-800-1234', 1, 0, '0.1.0-test')
+    (1, '同城任务后台管理系统', 'support@example.com', '400-800-1234', 1, 0, '#5B66F3', 'light', 'medium', 'zh-CN', '0.1.0-test')
 ON DUPLICATE KEY UPDATE
     `platform_name` = VALUES(`platform_name`),
     `support_email` = VALUES(`support_email`),
     `service_phone` = VALUES(`service_phone`),
     `allow_register` = VALUES(`allow_register`),
     `maintenance_mode` = VALUES(`maintenance_mode`),
+    `theme_color` = VALUES(`theme_color`),
+    `theme_mode` = VALUES(`theme_mode`),
+    `font_size` = VALUES(`font_size`),
+    `language` = VALUES(`language`),
     `version` = VALUES(`version`);
 
 -- =============================================
@@ -131,16 +133,21 @@ ON DUPLICATE KEY UPDATE
 -- =============================================
 
 INSERT INTO `trade_order`
-(`id`, `order_no`, `post_id`, `publisher_id`, `receiver_id`, `amount`, `status`, `remark`,
+(`id`, `order_no`, `post_id`, `publisher_id`, `receiver_id`, `amount`, `status`, `pay_status`, `pay_gateway`, `pay_no`, `pay_time`, `refund_time`, `remark`,
  `confirm_time`, `finish_time`, `cancel_time`, `cancel_reason`, `create_time`, `update_time`)
 VALUES
-    (201, 'TO202603310001', 101, 11, 12, 150.00, 1, '已预约周末上门清洗', '2026-03-25 10:00:00', NULL, NULL, NULL, '2026-03-25 09:40:00', '2026-03-25 10:00:00'),
-    (202, 'TO202603310002', 105, 12, 11, 120.00, 2, '系统重装已完成', '2026-03-24 16:00:00', '2026-03-30 18:00:00', NULL, NULL, '2026-03-24 15:20:00', '2026-03-30 18:00:00'),
-    (203, 'TO202603310003', 106, 15, 13, 300.00, 0, '等待接单人确认排课时间', NULL, NULL, NULL, NULL, '2026-03-30 09:00:00', '2026-03-30 09:00:00'),
-    (204, 'TO202603310004', 101, 11, 14, 180.00, 3, '服务时间冲突，已取消', NULL, NULL, '2026-03-26 12:30:00', '双方时间冲突', '2026-03-26 11:00:00', '2026-03-26 12:30:00')
+    (201, 'TO202603310001', 101, 11, 12, 150.00, 1, 1, 'mock', 'MOCKPAY-201', '2026-03-25 09:55:00', NULL, '已预约周末上门清洗', '2026-03-25 10:00:00', NULL, NULL, NULL, '2026-03-25 09:40:00', '2026-03-25 10:00:00'),
+    (202, 'TO202603310002', 105, 12, 11, 120.00, 2, 3, 'mock', 'MOCKPAY-202', '2026-03-24 15:50:00', NULL, '系统重装已完成', '2026-03-24 16:00:00', '2026-03-30 18:00:00', NULL, NULL, '2026-03-24 15:20:00', '2026-03-30 18:00:00'),
+    (203, 'TO202603310003', 106, 15, 13, 300.00, 0, 0, NULL, NULL, NULL, NULL, '等待接单人确认排课时间', NULL, NULL, NULL, NULL, '2026-03-30 09:00:00', '2026-03-30 09:00:00'),
+    (204, 'TO202603310004', 101, 11, 14, 180.00, 3, 2, 'mock', 'MOCKPAY-204', '2026-03-26 11:20:00', '2026-03-26 12:31:00', '服务时间冲突，已取消', NULL, NULL, '2026-03-26 12:30:00', '双方时间冲突', '2026-03-26 11:00:00', '2026-03-26 12:30:00')
 ON DUPLICATE KEY UPDATE
     `amount` = VALUES(`amount`),
     `status` = VALUES(`status`),
+    `pay_status` = VALUES(`pay_status`),
+    `pay_gateway` = VALUES(`pay_gateway`),
+    `pay_no` = VALUES(`pay_no`),
+    `pay_time` = VALUES(`pay_time`),
+    `refund_time` = VALUES(`refund_time`),
     `remark` = VALUES(`remark`),
     `confirm_time` = VALUES(`confirm_time`),
     `finish_time` = VALUES(`finish_time`),
@@ -206,13 +213,13 @@ ON DUPLICATE KEY UPDATE
 
 
 INSERT INTO `sys_user_profile`
-(`id`, `user_id`, `real_name`, `gender`, `birthday`, `city_name`, `area_name`, `address`, `bio`)
+(`id`, `user_id`, `real_name`, `gender`, `birthday`, `city_name`, `area_name`, `address`, `bio`, `wallet_balance`)
 VALUES
-    (1, 11, 'Alice Wang', 2, '2000-03-18', '北京', '海淀区', '中关村软件园一期', '喜欢整理任务流程和做计划。'),
-    (2, 12, 'Bob Li', 1, '1999-11-05', '北京', '朝阳区', '望京 SOHO', '擅长数码维修和上门服务。'),
-    (3, 13, 'Carol Chen', 2, '2001-07-12', '北京', '昌平区', '沙河高教园', '校内跑腿和快递代取都很熟。'),
-    (4, 14, 'David Zhang', 1, '1998-09-22', '北京', '丰台区', '科技园区', '专注演示文稿与设计美化。'),
-    (5, 15, 'Erin Liu', 2, '2000-01-08', '北京', '西城区', '金融街附近', '有家教和学习辅导经验。')
+    (1, 11, 'Alice Wang', 2, '2000-03-18', '北京', '海淀区', '中关村软件园一期', '喜欢整理任务流程和做计划。', 1680.00),
+    (2, 12, 'Bob Li', 1, '1999-11-05', '北京', '朝阳区', '望京 SOHO', '擅长数码维修和上门服务。', 990.00),
+    (3, 13, 'Carol Chen', 2, '2001-07-12', '北京', '昌平区', '沙河高教园', '校内跑腿和快递代取都很熟。', 1000.00),
+    (4, 14, 'David Zhang', 1, '1998-09-22', '北京', '丰台区', '科技园区', '专注演示文稿与设计美化。', 1180.00),
+    (5, 15, 'Erin Liu', 2, '2000-01-08', '北京', '西城区', '金融街附近', '有家教和学习辅导经验。', 700.00)
 ON DUPLICATE KEY UPDATE
     `real_name` = VALUES(`real_name`),
     `gender` = VALUES(`gender`),
@@ -220,5 +227,6 @@ ON DUPLICATE KEY UPDATE
     `city_name` = VALUES(`city_name`),
     `area_name` = VALUES(`area_name`),
     `address` = VALUES(`address`),
-    `bio` = VALUES(`bio`);
+    `bio` = VALUES(`bio`),
+    `wallet_balance` = VALUES(`wallet_balance`);
 SET FOREIGN_KEY_CHECKS = 1;

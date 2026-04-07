@@ -22,6 +22,14 @@
           AND module_name = #{moduleName}
     </select>
 
+    <select id="selectByIdAndStatus" resultMap="ModuleItemResultMap">
+        SELECT id, module_name, name, code, status, description, create_time, update_time
+        FROM sys_module_item
+        WHERE id = #{id}
+          AND module_name = #{moduleName}
+          AND status = #{status}
+    </select>
+
     <select id="selectPage" resultMap="ModuleItemResultMap">
         SELECT id, module_name, name, code, status, description, create_time, update_time
         FROM sys_module_item
@@ -30,10 +38,26 @@
         LIMIT #{offset}, #{pageSize}
     </select>
 
+    <select id="selectPageByStatus" resultMap="ModuleItemResultMap">
+        SELECT id, module_name, name, code, status, description, create_time, update_time
+        FROM sys_module_item
+        WHERE module_name = #{moduleName}
+          AND status = #{status}
+        ORDER BY id DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
     <select id="countPage" resultType="long">
         SELECT COUNT(1)
         FROM sys_module_item
         WHERE module_name = #{moduleName}
+    </select>
+
+    <select id="countPageByStatus" resultType="long">
+        SELECT COUNT(1)
+        FROM sys_module_item
+        WHERE module_name = #{moduleName}
+          AND status = #{status}
     </select>
 
     <insert id="insertModuleItem" parameterType="com.example.admin.entity.ModuleItem" useGeneratedKeys="true" keyProperty="id">

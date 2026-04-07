@@ -30,6 +30,16 @@ public class TradeOrder implements Serializable {
 
     private Integer status;
 
+    private Integer payStatus;
+
+    private String payGateway;
+
+    private String payNo;
+
+    private LocalDateTime payTime;
+
+    private LocalDateTime refundTime;
+
     private String remark;
 
     private LocalDateTime confirmTime;

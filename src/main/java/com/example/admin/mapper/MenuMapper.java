@@ -18,6 +18,8 @@ public interface MenuMapper {
 
     long countPage();
 
+    List<Menu> selectAll();
+
     List<Menu> selectAllEnabled();
 
     List<Menu> selectByIds(@Param("ids") List<Long> ids);

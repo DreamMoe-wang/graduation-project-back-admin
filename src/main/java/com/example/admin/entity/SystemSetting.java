@@ -25,6 +25,14 @@ public class SystemSetting implements Serializable {
 
     private Integer maintenanceMode;
 
+    private String themeColor;
+
+    private String themeMode;
+
+    private String fontSize;
+
+    private String language;
+
     private String version;
 
     private LocalDateTime createTime;

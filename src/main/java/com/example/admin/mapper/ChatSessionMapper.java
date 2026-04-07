@@ -16,6 +16,8 @@ public interface ChatSessionMapper {
                                                    @Param("userIdA") Long userIdA,
                                                    @Param("userIdB") Long userIdB);
 
+    ChatSession selectByOrderId(@Param("orderId") Long orderId);
+
     int insertChatSession(ChatSession chatSession);
 
     int updateChatSession(ChatSession chatSession);

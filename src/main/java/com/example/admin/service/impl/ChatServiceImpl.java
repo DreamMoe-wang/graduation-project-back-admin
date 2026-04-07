@@ -5,11 +5,13 @@ import com.example.admin.dto.ChatMessageSendDTO;
 import com.example.admin.entity.ChatMessage;
 import com.example.admin.entity.ChatSession;
 import com.example.admin.entity.ChatSessionUser;
+import com.example.admin.entity.TradeOrder;
 import com.example.admin.entity.User;
 import com.example.admin.mapper.ChatMessageMapper;
 import com.example.admin.entity.TradePost;
 import com.example.admin.mapper.ChatSessionMapper;
 import com.example.admin.mapper.ChatSessionUserMapper;
+import com.example.admin.mapper.TradeOrderMapper;
 import com.example.admin.mapper.TradePostMapper;
 import com.example.admin.mapper.UserMapper;
 import com.example.admin.security.SecurityUtils;
@@ -18,13 +20,16 @@ import com.example.admin.vo.ChatMessageVO;
 import com.example.admin.vo.ChatSessionVO;
 import com.example.admin.websocket.ChatRealtimeNotifier;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -52,6 +57,9 @@ public class ChatServiceImpl implements ChatService {
     private TradePostMapper tradePostMapper;
 
     @Resource
+    private TradeOrderMapper tradeOrderMapper;
+
+    @Resource
     private ChatRealtimeNotifier chatRealtimeNotifier;
 
     @Override
@@ -68,6 +76,7 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public ChatSessionVO openTradeSession(Long tradeId) {
         Long currentUserId = currentUserId();
         TradePost tradePost = tradePostMapper.selectById(tradeId);
@@ -99,6 +108,76 @@ public class ChatServiceImpl implements ChatService {
             chatSessionUserMapper.insertChatSessionUser(publisherMember);
         }
 
+        return buildSessionVO(session.getId(), currentUserId, 0);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ChatSessionVO openOrderSession(Long orderId) {
+        Long currentUserId = currentUserId();
+        TradeOrder order = tradeOrderMapper.selectById(orderId);
+        if (order == null) {
+            throw new RuntimeException("订单不存在");
+        }
+        if (order.getPublisherId() == null || order.getPublisherId() <= 0) {
+            throw new RuntimeException("订单发布方信息缺失");
+        }
+        if (order.getReceiverId() == null || order.getReceiverId() <= 0) {
+            throw new RuntimeException("当前订单还没有接单方，无法创建会话");
+        }
+        if (!currentUserId.equals(order.getPublisherId()) && !currentUserId.equals(order.getReceiverId())) {
+            throw new RuntimeException("当前用户无权发起订单会话");
+        }
+
+        Set<Long> expectedUserIds = new LinkedHashSet<>();
+        expectedUserIds.add(order.getPublisherId());
+        expectedUserIds.add(order.getReceiverId());
+
+        ChatSession session = chatSessionMapper.selectByOrderId(orderId);
+        if (session != null) {
+            List<ChatSessionUser> existingMembers = chatSessionUserMapper.selectBySessionId(session.getId());
+            boolean hasUnexpectedMember = existingMembers.stream()
+                    .map(ChatSessionUser::getUserId)
+                    .filter(Objects::nonNull)
+                    .anyMatch(userId -> !expectedUserIds.contains(userId));
+            if (hasUnexpectedMember) {
+                for (ChatSessionUser member : existingMembers) {
+                    chatSessionUserMapper.deleteBySessionIdAndUserId(session.getId(), member.getUserId());
+                }
+                session.setOrderId(null);
+                session.setStatus(0);
+                chatSessionMapper.updateChatSession(session);
+                session = null;
+            }
+        }
+
+        if (session == null) {
+            session = new ChatSession();
+            session.setSessionType(2);
+            session.setPostId(order.getPostId());
+            session.setOrderId(orderId);
+            session.setStatus(1);
+            chatSessionMapper.insertChatSession(session);
+        } else {
+            boolean changed = false;
+            if (!Objects.equals(session.getSessionType(), 2)) {
+                session.setSessionType(2);
+                changed = true;
+            }
+            if (!Objects.equals(session.getPostId(), order.getPostId())) {
+                session.setPostId(order.getPostId());
+                changed = true;
+            }
+            if (session.getStatus() == null || session.getStatus() != 1) {
+                session.setStatus(1);
+                changed = true;
+            }
+            if (changed) {
+                chatSessionMapper.updateChatSession(session);
+            }
+        }
+
+        syncSessionMembers(session, order.getPublisherId(), order.getReceiverId());
         return buildSessionVO(session.getId(), currentUserId, 0);
     }
 
@@ -201,7 +280,7 @@ public class ChatServiceImpl implements ChatService {
 
     private ChatSessionVO buildSessionVO(Long sessionId, Long currentUserId, Integer unreadCount) {
         ChatSession session = chatSessionMapper.selectById(sessionId);
-        if (session == null) {
+        if (session == null || session.getStatus() == null || session.getStatus() != 1) {
             return null;
         }
         TradePost tradePost = session.getPostId() == null ? null : tradePostMapper.selectById(session.getPostId());
@@ -212,6 +291,7 @@ public class ChatServiceImpl implements ChatService {
         return ChatSessionVO.builder()
                 .id(session.getId())
                 .tradeId(session.getPostId())
+                .orderId(session.getOrderId())
                 .tradeTitle(tradePost == null ? null : tradePost.getTitle())
                 .name(otherUser == null ? "未知用户" : buildDisplayName(otherUser))
                 .avatar(otherUser == null ? null : otherUser.getAvatar())
@@ -239,6 +319,44 @@ public class ChatServiceImpl implements ChatService {
             throw new RuntimeException("当前用户无权访问该会话");
         }
         return sessionUser;
+    }
+
+    private void syncSessionMembers(ChatSession session, Long... userIds) {
+        if (session == null || session.getId() == null) {
+            throw new RuntimeException("会话不存在");
+        }
+
+        Set<Long> expectedUserIds = new LinkedHashSet<>();
+        if (userIds != null) {
+            for (Long userId : userIds) {
+                if (userId != null && userId > 0) {
+                    expectedUserIds.add(userId);
+                }
+            }
+        }
+
+        List<ChatSessionUser> members = chatSessionUserMapper.selectBySessionId(session.getId());
+        for (ChatSessionUser member : members) {
+            if (member.getUserId() == null || !expectedUserIds.contains(member.getUserId())) {
+                chatSessionUserMapper.deleteBySessionIdAndUserId(session.getId(), member.getUserId());
+            }
+        }
+
+        ChatMessage latestMessage = session.getLastMessageId() == null ? null : chatMessageMapper.selectById(session.getLastMessageId());
+        for (Long userId : expectedUserIds) {
+            ChatSessionUser sessionUser = chatSessionUserMapper.selectBySessionIdAndUserId(session.getId(), userId);
+            if (sessionUser != null) {
+                continue;
+            }
+
+            ChatSessionUser member = new ChatSessionUser();
+            member.setSessionId(session.getId());
+            member.setUserId(userId);
+            member.setLastReadMessageId(latestMessage == null ? null : latestMessage.getId());
+            member.setLastReadTime(session.getLastMessageTime());
+            member.setUnreadCount(0);
+            chatSessionUserMapper.insertChatSessionUser(member);
+        }
     }
 
     private String buildDisplayName(User user) {

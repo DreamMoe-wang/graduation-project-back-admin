@@ -156,6 +156,11 @@ CREATE TABLE IF NOT EXISTS `trade_order` (
     `receiver_id` BIGINT NOT NULL COMMENT '接单方用户ID',
     `amount` DECIMAL(10, 2) NOT NULL DEFAULT 0.00 COMMENT '成交金额',
     `status` TINYINT NOT NULL DEFAULT 0 COMMENT '订单状态：0-待确认，1-进行中，2-已完成，3-已取消',
+    `pay_status` TINYINT NOT NULL DEFAULT 0 COMMENT '支付状态：0-待支付，1-已支付，2-已退款，3-已结算',
+    `pay_gateway` VARCHAR(32) DEFAULT NULL COMMENT '支付网关：mock/wechat',
+    `pay_no` VARCHAR(64) DEFAULT NULL COMMENT '支付流水号',
+    `pay_time` DATETIME DEFAULT NULL COMMENT '支付时间',
+    `refund_time` DATETIME DEFAULT NULL COMMENT '退款时间',
     `remark` VARCHAR(255) DEFAULT NULL COMMENT '备注',
     `confirm_time` DATETIME DEFAULT NULL COMMENT '确认时间',
     `finish_time` DATETIME DEFAULT NULL COMMENT '完成时间',
@@ -165,6 +170,7 @@ CREATE TABLE IF NOT EXISTS `trade_order` (
     `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_trade_order_no` (`order_no`),
+    KEY `idx_trade_order_pay_status` (`pay_status`),
     KEY `idx_trade_order_post_id` (`post_id`),
     KEY `idx_trade_order_publisher_id` (`publisher_id`),
     KEY `idx_trade_order_receiver_id` (`receiver_id`),
@@ -218,6 +224,28 @@ CREATE TABLE IF NOT EXISTS `chat_message` (
     KEY `idx_chat_message_sender_id` (`sender_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='聊天消息表';
 
+CREATE TABLE IF NOT EXISTS `sys_operation_log` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `user_id` BIGINT DEFAULT NULL COMMENT '操作人ID',
+    `username` VARCHAR(50) DEFAULT NULL COMMENT '操作人用户名',
+    `menu_name` VARCHAR(100) NOT NULL COMMENT '菜单名称',
+    `menu_path` VARCHAR(255) DEFAULT NULL COMMENT '菜单路径',
+    `action_name` VARCHAR(100) NOT NULL COMMENT '操作名称',
+    `request_method` VARCHAR(10) NOT NULL COMMENT '请求方法',
+    `request_uri` VARCHAR(255) NOT NULL COMMENT '请求地址',
+    `ip_address` VARCHAR(64) DEFAULT NULL COMMENT '操作IP',
+    `operation_status` TINYINT NOT NULL DEFAULT 1 COMMENT '操作结果：0-失败，1-成功',
+    `duration_ms` BIGINT NOT NULL DEFAULT 0 COMMENT '耗时毫秒',
+    `result_message` VARCHAR(255) DEFAULT NULL COMMENT '结果消息',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_sys_operation_log_user_id` (`user_id`),
+    KEY `idx_sys_operation_log_menu_name` (`menu_name`),
+    KEY `idx_sys_operation_log_action_name` (`action_name`),
+    KEY `idx_sys_operation_log_ip_address` (`ip_address`),
+    KEY `idx_sys_operation_log_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作日志表';
+
 -- =============================================
 -- 通用模块与系统设置
 -- =============================================
@@ -242,6 +270,10 @@ CREATE TABLE IF NOT EXISTS `sys_system_setting` (
     `service_phone` VARCHAR(50) DEFAULT NULL COMMENT '客服电话',
     `allow_register` TINYINT NOT NULL DEFAULT 1 COMMENT '是否允许注册：0-否，1-是',
     `maintenance_mode` TINYINT NOT NULL DEFAULT 0 COMMENT '维护模式：0-关闭，1-开启',
+    `theme_color` VARCHAR(20) NOT NULL DEFAULT '#5B66F3' COMMENT '主题色',
+    `theme_mode` VARCHAR(20) NOT NULL DEFAULT 'light' COMMENT '主题模式：light-明亮，dark-暗黑',
+    `font_size` VARCHAR(20) NOT NULL DEFAULT 'medium' COMMENT '字体大小：small-小，medium-中，large-大',
+    `language` VARCHAR(20) NOT NULL DEFAULT 'zh-CN' COMMENT '系统语言：zh-CN/en-US',
     `version` VARCHAR(50) DEFAULT NULL COMMENT '版本号',
     `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -285,13 +317,15 @@ VALUES
     (1006, 0, '聊天室', 2, '/chat', 'ChatRoom', 'chat/ChatRoom', 'ChatDotRound', 'chat:view', 3, 1, 1, '聊天室页面'),
     (1007, 0, '用户管理', 2, '/user', 'UserManage', 'user/UserManage', 'User', 'user:manage', 4, 1, 1, '用户管理页面'),
     (1008, 0, '角色管理', 2, '/role', 'RoleManage', 'role/RoleManage', 'Avatar', 'role:manage', 5, 1, 1, '角色管理页面'),
-    (1009, 0, '菜单管理', 2, '/menu', 'MenuManage', 'menu/MenuManage', 'Menu', 'menu:manage', 6, 1, 1, '菜单管理页面'),
-    (1010, 0, '字典管理', 2, '/dict', 'DictManage', 'dict/DictManage', 'Collection', 'dict:manage', 7, 1, 1, '字典管理页面'),
+    (1009, 0, '菜单管理', 2, '/menu', 'MenuManage', 'menu/MenuManage', 'Menu', 'menu:view', 6, 1, 1, '菜单管理页面'),
     (1011, 0, '通知公告', 2, '/notice', 'NoticeManage', 'notice/NoticeManage', 'Bell', 'notice:manage', 8, 1, 1, '通知公告页面'),
     (1012, 0, '日志管理', 2, '/log', 'LogManage', 'log/LogManage', 'Notebook', 'log:manage', 9, 1, 1, '日志管理页面'),
     (1013, 0, '系统设置', 2, '/setting', 'SystemSetting', 'setting/SystemSetting', 'Setting', 'setting:manage', 10, 1, 1, '系统设置页面'),
     (1030, 0, '个人中心', 2, '/profile', 'ProfileCenter', 'profile/ProfileCenter', 'UserFilled', 'profile:view', 11, 1, 1, '当前用户个人信息中心'),
-    (1014, 1002, '交易审核', 3, NULL, NULL, NULL, NULL, 'trade:review', 99, 0, 1, '交易审核按钮权限')
+    (1014, 1002, '交易审核', 3, NULL, NULL, NULL, NULL, 'trade:review', 99, 0, 1, '交易审核按钮权限'),
+    (1031, 1009, '新增菜单', 3, NULL, NULL, NULL, NULL, 'menu:create', 1, 0, 1, '菜单管理-新增按钮'),
+    (1032, 1009, '编辑菜单', 3, NULL, NULL, NULL, NULL, 'menu:edit', 2, 0, 1, '菜单管理-编辑按钮'),
+    (1033, 1009, '删除菜单', 3, NULL, NULL, NULL, NULL, 'menu:delete', 3, 0, 1, '菜单管理-删除按钮')
 ON DUPLICATE KEY UPDATE
     `parent_id` = VALUES(`parent_id`),
     `menu_name` = VALUES(`menu_name`),
@@ -309,19 +343,24 @@ ON DUPLICATE KEY UPDATE
 INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`)
 VALUES
     (1, 1001), (1, 1002), (1, 1003), (1, 1004), (1, 1005), (1, 1006),
-    (1, 1007), (1, 1008), (1, 1009), (1, 1010), (1, 1011), (1, 1012), (1, 1013), (1, 1014), (1, 1030),
+    (1, 1007), (1, 1008), (1, 1009), (1, 1011), (1, 1012), (1, 1013), (1, 1014), (1, 1030),
+    (1, 1031), (1, 1032), (1, 1033),
     (2, 1001), (2, 1002), (2, 1003), (2, 1004), (2, 1005), (2, 1006), (2, 1030);
 
 INSERT INTO `sys_system_setting`
-(`id`, `platform_name`, `support_email`, `service_phone`, `allow_register`, `maintenance_mode`, `version`)
+(`id`, `platform_name`, `support_email`, `service_phone`, `allow_register`, `maintenance_mode`, `theme_color`, `theme_mode`, `font_size`, `language`, `version`)
 VALUES
-    (1, '毕业设计后台管理系统', 'support@example.com', '400-800-1234', 1, 0, '0.1.0')
+    (1, '毕业设计后台管理系统', 'support@example.com', '400-800-1234', 1, 0, '#5B66F3', 'light', 'medium', 'zh-CN', '0.1.0')
 ON DUPLICATE KEY UPDATE
     `platform_name` = VALUES(`platform_name`),
     `support_email` = VALUES(`support_email`),
     `service_phone` = VALUES(`service_phone`),
     `allow_register` = VALUES(`allow_register`),
     `maintenance_mode` = VALUES(`maintenance_mode`),
+    `theme_color` = VALUES(`theme_color`),
+    `theme_mode` = VALUES(`theme_mode`),
+    `font_size` = VALUES(`font_size`),
+    `language` = VALUES(`language`),
     `version` = VALUES(`version`);
 
 
@@ -335,20 +374,22 @@ CREATE TABLE IF NOT EXISTS `sys_user_profile` (
     `area_name` VARCHAR(50) DEFAULT NULL COMMENT '区域',
     `address` VARCHAR(255) DEFAULT NULL COMMENT '详细地址',
     `bio` VARCHAR(500) DEFAULT NULL COMMENT '个人简介',
+    `wallet_balance` DECIMAL(12, 2) NOT NULL DEFAULT 1000.00 COMMENT '钱包余额',
     `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_sys_user_profile_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户扩展资料表';
 
-INSERT INTO `sys_user_profile` (`id`, `user_id`, `real_name`, `gender`, `city_name`, `area_name`, `address`, `bio`)
+INSERT INTO `sys_user_profile` (`id`, `user_id`, `real_name`, `gender`, `city_name`, `area_name`, `address`, `bio`, `wallet_balance`)
 VALUES
-    (1, 1, '系统管理员', 1, '北京', '海淀区', '中关村软件园', '负责平台审核与管理')
+    (1, 1, '系统管理员', 1, '北京', '海淀区', '中关村软件园', '负责平台审核与管理', 10000.00)
 ON DUPLICATE KEY UPDATE
     `real_name` = VALUES(`real_name`),
     `gender` = VALUES(`gender`),
     `city_name` = VALUES(`city_name`),
     `area_name` = VALUES(`area_name`),
     `address` = VALUES(`address`),
-    `bio` = VALUES(`bio`);
+    `bio` = VALUES(`bio`),
+    `wallet_balance` = VALUES(`wallet_balance`);
 SET FOREIGN_KEY_CHECKS = 1;

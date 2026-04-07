@@ -86,6 +86,11 @@ public interface TradeService {
     boolean completeOrder(Long id);
 
     /**
+     * 订单支付
+     */
+    boolean payOrder(Long id);
+
+    /**
      * 取消订单
      */
     boolean cancelOrder(Long id);

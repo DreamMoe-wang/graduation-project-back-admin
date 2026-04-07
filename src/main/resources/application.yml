@@ -67,3 +67,11 @@ logging:
     com.example.admin: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{50} - %msg%n"
+
+payment:
+  gateway: ${PAYMENT_GATEWAY:mock}
+
+baidu:
+  map:
+    ak: ${BAIDU_MAP_AK:}
+    timeout-ms: ${BAIDU_MAP_TIMEOUT_MS:5000}

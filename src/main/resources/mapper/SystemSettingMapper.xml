@@ -11,13 +11,18 @@
         <result column="service_phone" property="servicePhone"/>
         <result column="allow_register" property="allowRegister"/>
         <result column="maintenance_mode" property="maintenanceMode"/>
+        <result column="theme_color" property="themeColor"/>
+        <result column="theme_mode" property="themeMode"/>
+        <result column="font_size" property="fontSize"/>
+        <result column="language" property="language"/>
         <result column="version" property="version"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
 
     <select id="selectCurrent" resultMap="SystemSettingResultMap">
-        SELECT id, platform_name, support_email, service_phone, allow_register, maintenance_mode, version, create_time, update_time
+        SELECT id, platform_name, support_email, service_phone, allow_register, maintenance_mode,
+               theme_color, theme_mode, font_size, language, version, create_time, update_time
         FROM sys_system_setting
         ORDER BY id ASC
         LIMIT 1
@@ -25,9 +30,11 @@
 
     <insert id="insertSystemSetting" parameterType="com.example.admin.entity.SystemSetting" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO sys_system_setting
-        (platform_name, support_email, service_phone, allow_register, maintenance_mode, version, create_time, update_time)
+        (platform_name, support_email, service_phone, allow_register, maintenance_mode,
+         theme_color, theme_mode, font_size, language, version, create_time, update_time)
         VALUES
-        (#{platformName}, #{supportEmail}, #{servicePhone}, #{allowRegister}, #{maintenanceMode}, #{version}, NOW(), NOW())
+        (#{platformName}, #{supportEmail}, #{servicePhone}, #{allowRegister}, #{maintenanceMode},
+         #{themeColor}, #{themeMode}, #{fontSize}, #{language}, #{version}, NOW(), NOW())
     </insert>
 
     <update id="updateSystemSetting" parameterType="com.example.admin.entity.SystemSetting">
@@ -37,6 +44,10 @@
             service_phone = #{servicePhone},
             allow_register = #{allowRegister},
             maintenance_mode = #{maintenanceMode},
+            theme_color = #{themeColor},
+            theme_mode = #{themeMode},
+            font_size = #{fontSize},
+            language = #{language},
             version = #{version},
             update_time = NOW()
         WHERE id = #{id}

@@ -25,8 +25,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 用户服务实现类
@@ -35,6 +40,7 @@ import java.util.List;
 public class UserServiceImpl implements UserService {
 
     private static final String DEFAULT_USER_ROLE_CODE = "USER";
+    private static final BigDecimal DEFAULT_WALLET_BALANCE = new BigDecimal("1000.00");
 
     @Resource
     private UserMapper userMapper;
@@ -132,6 +138,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean create(UserDTO userDTO) {
         checkUsernameUnique(userDTO.getUsername(), null);
         checkEmailUnique(userDTO.getEmail(), null);
@@ -145,13 +152,14 @@ public class UserServiceImpl implements UserService {
 
         boolean inserted = userMapper.insertUser(user) > 0;
         if (inserted) {
-            bindDefaultUserRole(user.getId());
+            syncUserRoles(user.getId(), userDTO.getRoleIds(), true);
             createEmptyUserProfile(user.getId());
         }
         return inserted;
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean update(Long id, UserDTO userDTO) {
         User user = getById(id);
         if (user == null) {
@@ -172,7 +180,11 @@ public class UserServiceImpl implements UserService {
             user.setStatus(1);
         }
 
-        return userMapper.updateUser(user) > 0;
+        boolean updated = userMapper.updateUser(user) > 0;
+        if (updated && userDTO.getRoleIds() != null) {
+            syncUserRoles(user.getId(), userDTO.getRoleIds(), false);
+        }
+        return updated;
     }
 
     @Override
@@ -201,6 +213,44 @@ public class UserServiceImpl implements UserService {
         relation.setUserId(userId);
         relation.setRoleId(role.getId());
         userRoleMapper.insertUserRole(relation);
+    }
+
+    private void syncUserRoles(Long userId, List<Long> roleIds, boolean fallbackToDefaultRole) {
+        List<Long> normalizedRoleIds = normalizeRoleIds(roleIds);
+        if (normalizedRoleIds.isEmpty() && fallbackToDefaultRole) {
+            bindDefaultUserRole(userId);
+            return;
+        }
+
+        userRoleMapper.deleteByUserId(userId);
+        for (Long roleId : normalizedRoleIds) {
+            UserRole relation = new UserRole();
+            relation.setUserId(userId);
+            relation.setRoleId(roleId);
+            userRoleMapper.insertUserRole(relation);
+        }
+    }
+
+    private List<Long> normalizeRoleIds(List<Long> roleIds) {
+        if (roleIds == null || roleIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        Set<Long> uniqueRoleIds = roleIds.stream()
+                .filter(item -> item != null && item > 0)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (uniqueRoleIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Role> roles = roleMapper.selectByIds(new ArrayList<>(uniqueRoleIds));
+        if (roles.size() != uniqueRoleIds.size()) {
+            throw new RuntimeException("部分角色不存在");
+        }
+
+        return roles.stream()
+                .map(Role::getId)
+                .collect(Collectors.toList());
     }
 
     private int resolveStatus(Integer status) {
@@ -260,6 +310,7 @@ public class UserServiceImpl implements UserService {
         UserProfile userProfile = new UserProfile();
         userProfile.setUserId(userId);
         userProfile.setGender(0);
+        userProfile.setWalletBalance(DEFAULT_WALLET_BALANCE);
         userProfileMapper.insertUserProfile(userProfile);
     }
 
@@ -279,6 +330,7 @@ public class UserServiceImpl implements UserService {
         profileVO.setAreaName(userProfile.getAreaName());
         profileVO.setAddress(userProfile.getAddress());
         profileVO.setBio(userProfile.getBio());
+        profileVO.setWalletBalance(userProfile.getWalletBalance());
         return profileVO;
     }
 }

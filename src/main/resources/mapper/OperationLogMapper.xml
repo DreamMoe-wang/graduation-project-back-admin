@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.admin.mapper.OperationLogMapper">
+
+    <resultMap id="OperationLogResultMap" type="com.example.admin.entity.OperationLog">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="username" property="username"/>
+        <result column="menu_name" property="menuName"/>
+        <result column="menu_path" property="menuPath"/>
+        <result column="action_name" property="actionName"/>
+        <result column="request_method" property="requestMethod"/>
+        <result column="request_uri" property="requestUri"/>
+        <result column="ip_address" property="ipAddress"/>
+        <result column="operation_status" property="operationStatus"/>
+        <result column="duration_ms" property="durationMs"/>
+        <result column="result_message" property="resultMessage"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <sql id="BaseColumns">
+        id, user_id, username, menu_name, menu_path, action_name, request_method,
+        request_uri, ip_address, operation_status, duration_ms, result_message, create_time
+    </sql>
+
+    <sql id="QueryConditions">
+        <where>
+            <if test="query != null and query.menuName != null and query.menuName != ''">
+                AND menu_name LIKE CONCAT('%', #{query.menuName}, '%')
+            </if>
+            <if test="query != null and query.actionName != null and query.actionName != ''">
+                AND action_name LIKE CONCAT('%', #{query.actionName}, '%')
+            </if>
+            <if test="query != null and query.username != null and query.username != ''">
+                AND username LIKE CONCAT('%', #{query.username}, '%')
+            </if>
+            <if test="query != null and query.ipAddress != null and query.ipAddress != ''">
+                AND ip_address LIKE CONCAT('%', #{query.ipAddress}, '%')
+            </if>
+            <if test="query != null and query.operationStatus != null">
+                AND operation_status = #{query.operationStatus}
+            </if>
+            <if test="query != null and query.startTime != null and query.startTime != ''">
+                AND create_time <![CDATA[>=]]> #{query.startTime}
+            </if>
+            <if test="query != null and query.endTime != null and query.endTime != ''">
+                AND create_time <![CDATA[<=]]> #{query.endTime}
+            </if>
+        </where>
+    </sql>
+
+    <select id="selectById" resultMap="OperationLogResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM sys_operation_log
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectPage" resultMap="OperationLogResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM sys_operation_log
+        <include refid="QueryConditions"/>
+        ORDER BY id DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(1)
+        FROM sys_operation_log
+        <include refid="QueryConditions"/>
+    </select>
+
+    <insert id="insertOperationLog" parameterType="com.example.admin.entity.OperationLog" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO sys_operation_log
+        (user_id, username, menu_name, menu_path, action_name, request_method, request_uri,
+         ip_address, operation_status, duration_ms, result_message, create_time)
+        VALUES
+        (#{userId}, #{username}, #{menuName}, #{menuPath}, #{actionName}, #{requestMethod}, #{requestUri},
+         #{ipAddress}, #{operationStatus}, #{durationMs}, #{resultMessage}, NOW())
+    </insert>
+
+    <delete id="deleteById">
+        DELETE FROM sys_operation_log
+        WHERE id = #{id}
+    </delete>
+
+    <delete id="clean">
+        DELETE FROM sys_operation_log
+    </delete>
+
+</mapper>

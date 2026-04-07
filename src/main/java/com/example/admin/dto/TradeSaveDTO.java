@@ -6,6 +6,7 @@ import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
+import javax.validation.constraints.Size;
 import java.math.BigDecimal;
 
 /**
@@ -49,6 +50,24 @@ public class TradeSaveDTO {
     @NotNull(message = "交易金额不能为空")
     @DecimalMin(value = "0.00", message = "交易金额不能小于 0")
     private BigDecimal amount;
+
+    /**
+     * 位置
+     */
+    @Size(max = 255, message = "位置长度不能超过 255 个字符")
+    private String location;
+
+    /**
+     * 城市
+     */
+    @Size(max = 50, message = "城市长度不能超过 50 个字符")
+    private String cityName;
+
+    /**
+     * 区域
+     */
+    @Size(max = 50, message = "区域长度不能超过 50 个字符")
+    private String areaName;
 
     /**
      * 状态

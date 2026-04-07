@@ -4,6 +4,8 @@ import com.example.admin.entity.UserProfile;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.math.BigDecimal;
+
 /**
  * 用户扩展资料 Mapper
  */
@@ -15,4 +17,6 @@ public interface UserProfileMapper {
     int insertUserProfile(UserProfile userProfile);
 
     int updateUserProfile(UserProfile userProfile);
+
+    int increaseWalletBalance(@Param("userId") Long userId, @Param("delta") BigDecimal delta);
 }

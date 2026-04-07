@@ -5,6 +5,7 @@ import com.example.admin.common.Result;
 import com.example.admin.dto.RoleDTO;
 import com.example.admin.entity.Role;
 import com.example.admin.service.RoleService;
+import com.example.admin.vo.RoleDetailVO;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,7 +35,7 @@ public class RoleController {
     }
 
     @GetMapping("/{id}")
-    public Result<Role> detail(@PathVariable Long id) {
+    public Result<RoleDetailVO> detail(@PathVariable Long id) {
         return Result.success(roleService.getById(id));
     }
 

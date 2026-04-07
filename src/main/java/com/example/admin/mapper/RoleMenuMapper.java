@@ -14,11 +14,15 @@ public interface RoleMenuMapper {
 
     List<RoleMenu> selectByRoleIds(@Param("roleIds") List<Long> roleIds);
 
+    List<RoleMenu> selectByRoleId(@Param("roleId") Long roleId);
+
     long countByMenuId(@Param("menuId") Long menuId);
 
     long countByRoleIdAndMenuId(@Param("roleId") Long roleId, @Param("menuId") Long menuId);
 
     int insertRoleMenu(RoleMenu roleMenu);
+
+    int deleteByRoleId(@Param("roleId") Long roleId);
 
     int deleteByMenuId(@Param("menuId") Long menuId);
 }

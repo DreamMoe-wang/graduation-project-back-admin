@@ -71,6 +71,15 @@ public class TradeOrderController {
     }
 
     /**
+     * 订单支付
+     */
+    @PostMapping("/{id}/pay")
+    public Result<Boolean> pay(@PathVariable Long id) {
+        boolean success = tradeService.payOrder(id);
+        return success ? Result.success("支付成功", true) : Result.error("支付失败");
+    }
+
+    /**
      * 取消订单
      */
     @PostMapping("/{id}/cancel")

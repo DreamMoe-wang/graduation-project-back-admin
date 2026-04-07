@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS `sys_user_profile` (
     `area_name` VARCHAR(50) DEFAULT NULL COMMENT '区域',
     `address` VARCHAR(255) DEFAULT NULL COMMENT '详细地址',
     `bio` VARCHAR(500) DEFAULT NULL COMMENT '个人简介',
+    `wallet_balance` DECIMAL(12, 2) NOT NULL DEFAULT 1000.00 COMMENT '钱包余额',
     `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
@@ -19,13 +20,14 @@ CREATE TABLE IF NOT EXISTS `sys_user_profile` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户扩展资料表';
 
 INSERT INTO `sys_user_profile`
-(`id`, `user_id`, `real_name`, `gender`, `city_name`, `area_name`, `address`, `bio`)
+(`id`, `user_id`, `real_name`, `gender`, `city_name`, `area_name`, `address`, `bio`, `wallet_balance`)
 VALUES
-    (1, 1, '系统管理员', 1, '北京', '海淀区', '中关村软件园', '负责平台审核与管理')
+    (1, 1, '系统管理员', 1, '北京', '海淀区', '中关村软件园', '负责平台审核与管理', 10000.00)
 ON DUPLICATE KEY UPDATE
     `real_name` = VALUES(`real_name`),
     `gender` = VALUES(`gender`),
     `city_name` = VALUES(`city_name`),
     `area_name` = VALUES(`area_name`),
     `address` = VALUES(`address`),
-    `bio` = VALUES(`bio`);
+    `bio` = VALUES(`bio`),
+    `wallet_balance` = VALUES(`wallet_balance`);

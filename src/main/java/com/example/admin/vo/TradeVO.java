@@ -34,6 +34,12 @@ public class TradeVO {
 
     private BigDecimal amount;
 
+    private String location;
+
+    private String cityName;
+
+    private String areaName;
+
     private String status;
 
     private String createTime;

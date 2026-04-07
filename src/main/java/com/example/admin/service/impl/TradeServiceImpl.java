@@ -11,19 +11,24 @@ import com.example.admin.entity.TradeOrder;
 import com.example.admin.entity.TradePost;
 import com.example.admin.entity.TradePostReview;
 import com.example.admin.entity.User;
+import com.example.admin.entity.UserProfile;
 import com.example.admin.mapper.TradeOrderMapper;
 import com.example.admin.mapper.TradePostMapper;
 import com.example.admin.mapper.TradePostReviewMapper;
 import com.example.admin.mapper.UserMapper;
+import com.example.admin.mapper.UserProfileMapper;
 import com.example.admin.security.SecurityUtils;
 import com.example.admin.service.TradeService;
 import com.example.admin.vo.TradeOrderStatsVO;
 import com.example.admin.vo.TradeOrderVO;
 import com.example.admin.vo.TradeVO;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -37,6 +42,13 @@ import java.util.stream.Collectors;
 public class TradeServiceImpl implements TradeService {
 
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final String PAYMENT_GATEWAY_MOCK = "mock";
+    private static final String PAYMENT_GATEWAY_WECHAT = "wechat";
+    private static final int PAY_STATUS_UNPAID = 0;
+    private static final int PAY_STATUS_PAID = 1;
+    private static final int PAY_STATUS_REFUNDED = 2;
+    private static final int PAY_STATUS_SETTLED = 3;
+    private static final BigDecimal DEFAULT_WALLET_BALANCE = new BigDecimal("1000.00");
 
     @Resource
     private TradePostMapper tradePostMapper;
@@ -48,6 +60,9 @@ public class TradeServiceImpl implements TradeService {
     private UserMapper userMapper;
 
     @Resource
+    private UserProfileMapper userProfileMapper;
+
+    @Resource
     private TradePostReviewMapper tradePostReviewMapper;
 
     @Resource
@@ -55,6 +70,9 @@ public class TradeServiceImpl implements TradeService {
 
     @Resource
     private UserProfileAssembler userProfileAssembler;
+
+    @Value("${payment.gateway:mock}")
+    private String paymentGateway;
 
     @Override
     public PageResult<List<TradeVO>> getPublishPage(TradeQueryDTO queryDTO) {
@@ -219,15 +237,20 @@ public class TradeServiceImpl implements TradeService {
             order.setAmount(tradePost.getPrice());
             order.setRemark("用户从交易大全接取交易");
         } else {
-            if (latestOrder.getStatus() == 1 || latestOrder.getStatus() == 2) {
+            if (latestOrder.getStatus() == 0 || latestOrder.getStatus() == 1 || latestOrder.getStatus() == 2) {
                 throw new RuntimeException("当前交易已被接取");
             }
             order = latestOrder;
         }
 
         order.setReceiverId(currentUserId);
-        order.setStatus(1);
-        order.setConfirmTime(LocalDateTime.now());
+        order.setStatus(0);
+        order.setPayStatus(PAY_STATUS_UNPAID);
+        order.setPayGateway(null);
+        order.setPayNo(null);
+        order.setPayTime(null);
+        order.setRefundTime(null);
+        order.setConfirmTime(null);
         order.setFinishTime(null);
         order.setCancelTime(null);
         order.setCancelReason(null);
@@ -312,15 +335,21 @@ public class TradeServiceImpl implements TradeService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean completeOrder(Long id) {
         TradeOrder order = getTradeOrderById(id);
         assertOrderAccessible(order);
+        Long currentUserId = currentUserId();
+        if (!currentUserId.equals(order.getReceiverId())) {
+            throw new AccessDeniedException("仅接单方可完成订单");
+        }
         if (order.getStatus() != 1) {
             throw new RuntimeException("只有进行中的订单才能完成");
         }
 
         order.setStatus(2);
         order.setFinishTime(LocalDateTime.now());
+        order.setPayStatus(isPaySettled(order.getPayStatus()) ? PAY_STATUS_SETTLED : PAY_STATUS_UNPAID);
         boolean updated = tradeOrderMapper.updateTradeOrder(order) > 0;
 
         TradePost tradePost = tradePostMapper.selectById(order.getPostId());
@@ -336,9 +365,51 @@ public class TradeServiceImpl implements TradeService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean payOrder(Long id) {
+        TradeOrder order = getTradeOrderById(id);
+        assertOrderAccessible(order);
+        Long currentUserId = currentUserId();
+
+        if (!currentUserId.equals(order.getPublisherId())) {
+            throw new AccessDeniedException("仅发布方可执行支付");
+        }
+
+        if (order.getStatus() != 2) {
+            throw new RuntimeException("仅已完成待支付订单可支付");
+        }
+
+        if (!isPayUnpaid(order.getPayStatus())) {
+            throw new RuntimeException("订单已支付或已结算，无需重复支付");
+        }
+
+        executeGatewayPay(order);
+        BigDecimal amount = safeAmount(order.getAmount());
+        decreaseWalletBalance(order.getPublisherId(), amount);
+        increaseWalletBalance(order.getReceiverId(), amount);
+
+        order.setPayStatus(PAY_STATUS_SETTLED);
+        order.setPayGateway(resolvePaymentGateway());
+        order.setPayNo(generateMockPayNo(order.getId()));
+        order.setPayTime(LocalDateTime.now());
+        order.setRefundTime(null);
+
+        boolean success = tradeOrderMapper.updateTradeOrder(order) > 0;
+        if (success) {
+            eventPublisher.publish("trade.order.paid", order.getOrderNo());
+        }
+        return success;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean cancelOrder(Long id) {
         TradeOrder order = getTradeOrderById(id);
         assertOrderAccessible(order);
+        Long currentUserId = currentUserId();
+        if (!currentUserId.equals(order.getReceiverId())) {
+            throw new AccessDeniedException("仅接单方可取消订单");
+        }
         if (order.getStatus() == 2) {
             throw new RuntimeException("已完成订单不能取消");
         }
@@ -347,6 +418,14 @@ public class TradeServiceImpl implements TradeService {
         order.setCancelTime(LocalDateTime.now());
         if (StrUtil.isBlank(order.getCancelReason())) {
             order.setCancelReason("用户取消订单");
+        }
+        if (isPayPaid(order.getPayStatus()) || isPaySettled(order.getPayStatus())) {
+            increaseWalletBalance(order.getPublisherId(), safeAmount(order.getAmount()));
+            order.setPayGateway(null);
+            order.setPayNo(null);
+            order.setPayTime(null);
+            order.setPayStatus(PAY_STATUS_REFUNDED);
+            order.setRefundTime(LocalDateTime.now());
         }
 
         boolean success = tradeOrderMapper.updateTradeOrder(order) > 0;
@@ -379,6 +458,9 @@ public class TradeServiceImpl implements TradeService {
                 .publisher(userProfileAssembler.toProfile(publisher))
                 .worker(userProfileAssembler.toProfile(receiver))
                 .amount(tradePost.getPrice())
+                .location(buildLocation(tradePost))
+                .cityName(tradePost.getCityName())
+                .areaName(tradePost.getAreaName())
                 .status(formatTradeStatus(tradePost.getStatus()))
                 .createTime(formatDateTime(tradePost.getCreateTime()))
                 .description(tradePost.getContent())
@@ -390,10 +472,11 @@ public class TradeServiceImpl implements TradeService {
         User publisher = userMapper.selectById(order.getPublisherId());
         User receiver = order.getReceiverId() == null ? null : userMapper.selectById(order.getReceiverId());
         String title = tradePost == null ? "" : tradePost.getTitle();
-        String area = tradePost == null ? "" : buildArea(tradePost.getCityName(), tradePost.getAreaName());
+        String area = buildLocation(tradePost);
 
         return TradeOrderVO.builder()
                 .id(order.getId())
+                .postId(order.getPostId())
                 .orderNo(order.getOrderNo())
                 .title(title)
                 .area(area)
@@ -403,6 +486,10 @@ public class TradeServiceImpl implements TradeService {
                 .price(order.getAmount())
                 .status(formatOrderStatus(order.getStatus()))
                 .statusText(formatOrderStatusText(order.getStatus()))
+                .payStatus(formatPayStatus(order.getPayStatus()))
+                .payStatusText(formatPayStatusText(order.getPayStatus()))
+                .payGateway(order.getPayGateway())
+                .payTime(formatDateTime(order.getPayTime()))
                 .build();
     }
 
@@ -466,6 +553,9 @@ public class TradeServiceImpl implements TradeService {
         tradePost.setTitle(tradeSaveDTO.getTitle());
         tradePost.setContent(tradeSaveDTO.getDescription());
         tradePost.setPrice(tradeSaveDTO.getAmount());
+        tradePost.setCityName(StrUtil.emptyToNull(StrUtil.trim(tradeSaveDTO.getCityName())));
+        tradePost.setAreaName(StrUtil.emptyToNull(StrUtil.trim(tradeSaveDTO.getAreaName())));
+        tradePost.setAddress(StrUtil.emptyToNull(StrUtil.trim(tradeSaveDTO.getLocation())));
         User publisher = tradePost.getPublisherId() == null ? null : userMapper.selectById(tradePost.getPublisherId());
 
         String resolvedContactName = StrUtil.firstNonBlank(
@@ -551,6 +641,16 @@ public class TradeServiceImpl implements TradeService {
             return cityName;
         }
         return cityName + areaName;
+    }
+
+    private String buildLocation(TradePost tradePost) {
+        if (tradePost == null) {
+            return "";
+        }
+        if (StrUtil.isNotBlank(tradePost.getAddress())) {
+            return tradePost.getAddress();
+        }
+        return buildArea(tradePost.getCityName(), tradePost.getAreaName());
     }
 
     private String formatDateTime(LocalDateTime dateTime) {
@@ -676,6 +776,134 @@ public class TradeServiceImpl implements TradeService {
             default:
                 return "未知状态";
         }
+    }
+
+    private String formatPayStatus(Integer payStatus) {
+        if (payStatus == null) {
+            return "unpaid";
+        }
+        switch (payStatus) {
+            case PAY_STATUS_UNPAID:
+                return "unpaid";
+            case PAY_STATUS_PAID:
+                return "paid";
+            case PAY_STATUS_REFUNDED:
+                return "refunded";
+            case PAY_STATUS_SETTLED:
+                return "settled";
+            default:
+                return String.valueOf(payStatus);
+        }
+    }
+
+    private String formatPayStatusText(Integer payStatus) {
+        if (payStatus == null) {
+            return "待支付";
+        }
+        switch (payStatus) {
+            case PAY_STATUS_UNPAID:
+                return "待支付";
+            case PAY_STATUS_PAID:
+                return "已支付";
+            case PAY_STATUS_REFUNDED:
+                return "已退款";
+            case PAY_STATUS_SETTLED:
+                return "已结算";
+            default:
+                return "未知支付状态";
+        }
+    }
+
+    private boolean isPayUnpaid(Integer payStatus) {
+        return payStatus == null || payStatus == PAY_STATUS_UNPAID;
+    }
+
+    private boolean isPayPaid(Integer payStatus) {
+        return payStatus != null && payStatus == PAY_STATUS_PAID;
+    }
+
+    private boolean isPaySettled(Integer payStatus) {
+        return payStatus != null && payStatus == PAY_STATUS_SETTLED;
+    }
+
+    private String resolvePaymentGateway() {
+        String normalized = StrUtil.blankToDefault(paymentGateway, PAYMENT_GATEWAY_MOCK).trim().toLowerCase(Locale.ROOT);
+        if (PAYMENT_GATEWAY_MOCK.equals(normalized) || PAYMENT_GATEWAY_WECHAT.equals(normalized)) {
+            return normalized;
+        }
+        return PAYMENT_GATEWAY_MOCK;
+    }
+
+    private void executeGatewayPay(TradeOrder order) {
+        String gateway = resolvePaymentGateway();
+        if (PAYMENT_GATEWAY_MOCK.equals(gateway)) {
+            return;
+        }
+        if (PAYMENT_GATEWAY_WECHAT.equals(gateway)) {
+            throw new RuntimeException("微信支付网关暂未接入，请先切换到 mock 网关");
+        }
+        throw new RuntimeException("暂不支持的支付网关：" + gateway);
+    }
+
+    private String generateMockPayNo(Long orderId) {
+        String suffix = orderId == null ? "0" : String.valueOf(orderId);
+        return "MOCKPAY-" + suffix + "-" + System.currentTimeMillis();
+    }
+
+    private BigDecimal safeAmount(BigDecimal amount) {
+        if (amount == null || amount.signum() < 0) {
+            return BigDecimal.ZERO;
+        }
+        return amount;
+    }
+
+    private void decreaseWalletBalance(Long userId, BigDecimal amount) {
+        if (userId == null) {
+            throw new RuntimeException("支付用户不存在");
+        }
+        if (amount == null || amount.signum() <= 0) {
+            return;
+        }
+        UserProfile profile = ensureUserProfile(userId);
+        BigDecimal balance = profile.getWalletBalance() == null ? BigDecimal.ZERO : profile.getWalletBalance();
+        if (balance.compareTo(amount) < 0) {
+            throw new RuntimeException("钱包余额不足，请先充值后再支付");
+        }
+        int updated = userProfileMapper.increaseWalletBalance(userId, amount.negate());
+        if (updated <= 0) {
+            throw new RuntimeException("钱包扣款失败，请稍后重试");
+        }
+    }
+
+    private void increaseWalletBalance(Long userId, BigDecimal amount) {
+        if (userId == null) {
+            throw new RuntimeException("钱包用户不存在");
+        }
+        if (amount == null || amount.signum() <= 0) {
+            return;
+        }
+        ensureUserProfile(userId);
+        int updated = userProfileMapper.increaseWalletBalance(userId, amount);
+        if (updated <= 0) {
+            throw new RuntimeException("钱包入账失败，请稍后重试");
+        }
+    }
+
+    private UserProfile ensureUserProfile(Long userId) {
+        UserProfile profile = userProfileMapper.selectByUserId(userId);
+        if (profile != null) {
+            return profile;
+        }
+        UserProfile nextProfile = new UserProfile();
+        nextProfile.setUserId(userId);
+        nextProfile.setGender(0);
+        nextProfile.setWalletBalance(DEFAULT_WALLET_BALANCE);
+        userProfileMapper.insertUserProfile(nextProfile);
+        UserProfile created = userProfileMapper.selectByUserId(userId);
+        if (created == null) {
+            throw new RuntimeException("用户钱包初始化失败");
+        }
+        return created;
     }
 
     private Long currentUserId() {

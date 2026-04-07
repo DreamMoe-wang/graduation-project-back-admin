@@ -13,6 +13,8 @@ public interface MenuService {
 
     PageResult<List<MenuVO>> page(Integer pageNum, Integer pageSize);
 
+    List<MenuVO> tree();
+
     MenuVO getById(Long id);
 
     boolean create(MenuDTO menuDTO);

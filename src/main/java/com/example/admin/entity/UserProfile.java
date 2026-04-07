@@ -3,6 +3,7 @@ package com.example.admin.entity;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -31,6 +32,8 @@ public class UserProfile implements Serializable {
     private String address;
 
     private String bio;
+
+    private BigDecimal walletBalance;
 
     private LocalDateTime createTime;
 

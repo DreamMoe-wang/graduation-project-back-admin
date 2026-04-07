@@ -14,10 +14,12 @@ import com.example.admin.service.MenuService;
 import com.example.admin.vo.MenuVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -51,6 +53,11 @@ public class MenuServiceImpl implements MenuService {
     }
 
     @Override
+    public List<MenuVO> tree() {
+        return buildTree(menuMapper.selectAll());
+    }
+
+    @Override
     public MenuVO getById(Long id) {
         Menu menu = menuMapper.selectById(id);
         if (menu == null) {
@@ -60,27 +67,34 @@ public class MenuServiceImpl implements MenuService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean create(MenuDTO menuDTO) {
+        normalizeMenuDTO(menuDTO);
         validateMenu(menuDTO, null);
         Menu menu = new Menu();
         BeanUtils.copyProperties(menuDTO, menu);
+        sanitizeMenuByType(menu);
         fillDefault(menu);
         return menuMapper.insertMenu(menu) > 0;
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean update(Long id, MenuDTO menuDTO) {
         Menu menu = menuMapper.selectById(id);
         if (menu == null) {
             throw new RuntimeException("菜单不存在");
         }
+        normalizeMenuDTO(menuDTO);
         validateMenu(menuDTO, id);
         BeanUtils.copyProperties(menuDTO, menu);
+        sanitizeMenuByType(menu);
         fillDefault(menu);
         return menuMapper.updateMenu(menu) > 0;
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean delete(Long id) {
         if (menuMapper.countByParentId(id) > 0) {
             throw new RuntimeException("请先删除子菜单");
@@ -146,12 +160,69 @@ public class MenuServiceImpl implements MenuService {
     }
 
     private void validateMenu(MenuDTO menuDTO, Long excludeId) {
+        Integer menuType = menuDTO.getMenuType();
+        if (menuType == null || (menuType != 1 && menuType != 2 && menuType != 3)) {
+            throw new RuntimeException("菜单类型非法");
+        }
+        if (menuDTO.getParentId() != null && menuDTO.getParentId() > 0) {
+            Menu parent = menuMapper.selectById(menuDTO.getParentId());
+            if (parent == null) {
+                throw new RuntimeException("父级菜单不存在");
+            }
+            if (parent.getMenuType() != null && parent.getMenuType() == 3) {
+                throw new RuntimeException("按钮类型不能继续新增子节点");
+            }
+        }
+        if (menuType == 3) {
+            if (menuDTO.getParentId() == null || menuDTO.getParentId() <= 0) {
+                throw new RuntimeException("按钮权限必须挂在父级菜单下");
+            }
+            if (StrUtil.isBlank(menuDTO.getPermissionCode())) {
+                throw new RuntimeException("按钮权限必须配置权限标识");
+            }
+        } else if (StrUtil.isBlank(menuDTO.getPath())) {
+            throw new RuntimeException("目录和菜单必须配置路由路径");
+        }
+        if (menuType == 2) {
+            if (StrUtil.isBlank(menuDTO.getRouteName())) {
+                throw new RuntimeException("页面菜单必须配置路由名称");
+            }
+            if (StrUtil.isBlank(menuDTO.getComponent())) {
+                throw new RuntimeException("页面菜单必须配置组件路径");
+            }
+        }
         if (StrUtil.isNotBlank(menuDTO.getPath()) && menuMapper.countByPath(menuDTO.getPath(), excludeId) > 0) {
             throw new RuntimeException("菜单路径已存在");
         }
         if (StrUtil.isNotBlank(menuDTO.getPermissionCode())
                 && menuMapper.countByPermissionCode(menuDTO.getPermissionCode(), excludeId) > 0) {
             throw new RuntimeException("权限标识已存在");
+        }
+    }
+
+    private void normalizeMenuDTO(MenuDTO menuDTO) {
+        menuDTO.setMenuName(StrUtil.trim(menuDTO.getMenuName()));
+        menuDTO.setPath(StrUtil.emptyToNull(StrUtil.trim(menuDTO.getPath())));
+        menuDTO.setRouteName(StrUtil.emptyToNull(StrUtil.trim(menuDTO.getRouteName())));
+        menuDTO.setComponent(StrUtil.emptyToNull(StrUtil.trim(menuDTO.getComponent())));
+        menuDTO.setIcon(StrUtil.emptyToNull(StrUtil.trim(menuDTO.getIcon())));
+        menuDTO.setPermissionCode(StrUtil.emptyToNull(StrUtil.trim(menuDTO.getPermissionCode())));
+        menuDTO.setRemark(StrUtil.emptyToNull(StrUtil.trim(menuDTO.getRemark())));
+    }
+
+    private void sanitizeMenuByType(Menu menu) {
+        if (menu.getMenuType() != null && menu.getMenuType() == 3) {
+            menu.setPath(null);
+            menu.setRouteName(null);
+            menu.setComponent(null);
+            menu.setIcon(null);
+            if (menu.getVisible() == null) {
+                menu.setVisible(0);
+            }
+        }
+        if (menu.getMenuType() != null && menu.getMenuType() == 1) {
+            menu.setRouteName(null);
+            menu.setComponent(null);
         }
     }
 
@@ -171,6 +242,9 @@ public class MenuServiceImpl implements MenuService {
     }
 
     private List<MenuVO> buildTree(List<Menu> menus) {
+        if (menus == null || menus.isEmpty()) {
+            return Collections.emptyList();
+        }
         List<MenuVO> allNodes = menus.stream()
                 .map(this::toVOWithChildren)
                 .collect(Collectors.toList());
@@ -195,13 +269,9 @@ public class MenuServiceImpl implements MenuService {
     }
 
     private void sortTree(List<MenuVO> nodes) {
-        nodes.sort((left, right) -> {
-            int sortCompare = Integer.compare(defaultSort(left.getSortNo()), defaultSort(right.getSortNo()));
-            if (sortCompare != 0) {
-                return sortCompare;
-            }
-            return Long.compare(left.getId(), right.getId());
-        });
+        nodes.sort(Comparator
+                .comparingInt((MenuVO item) -> defaultSort(item.getSortNo()))
+                .thenComparing(item -> item.getId() == null ? 0L : item.getId()));
         for (MenuVO node : nodes) {
             if (node.getChildren() != null && !node.getChildren().isEmpty()) {
                 sortTree(node.getChildren());

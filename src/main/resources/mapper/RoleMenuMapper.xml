@@ -20,6 +20,12 @@
         </foreach>
     </select>
 
+    <select id="selectByRoleId" resultMap="RoleMenuResultMap">
+        SELECT id, role_id, menu_id, create_time
+        FROM sys_role_menu
+        WHERE role_id = #{roleId}
+    </select>
+
     <select id="countByMenuId" resultType="long">
         SELECT COUNT(1)
         FROM sys_role_menu
@@ -43,6 +49,11 @@
     <delete id="deleteByMenuId">
         DELETE FROM sys_role_menu
         WHERE menu_id = #{menuId}
+    </delete>
+
+    <delete id="deleteByRoleId">
+        DELETE FROM sys_role_menu
+        WHERE role_id = #{roleId}
     </delete>
 
 </mapper>

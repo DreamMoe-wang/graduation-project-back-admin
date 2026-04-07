@@ -21,6 +21,8 @@ public interface ChatService {
      */
     ChatSessionVO openTradeSession(Long tradeId);
 
+    ChatSessionVO openOrderSession(Long orderId);
+
     /**
      * 获取会话消息
      */

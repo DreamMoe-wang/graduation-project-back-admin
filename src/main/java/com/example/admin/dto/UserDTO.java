@@ -5,6 +5,7 @@ import lombok.Data;
 import javax.validation.constraints.Email;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.Size;
+import java.util.List;
 
 /**
  * 用户数据传输对象
@@ -52,4 +53,6 @@ public class UserDTO {
      * 状态：0-禁用，1-正常
      */
     private Integer status;
+
+    private List<Long> roleIds;
 }

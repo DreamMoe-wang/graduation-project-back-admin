@@ -44,6 +44,12 @@
         SELECT COUNT(1) FROM sys_menu
     </select>
 
+    <select id="selectAll" resultMap="MenuResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM sys_menu
+        ORDER BY sort_no ASC, id ASC
+    </select>
+
     <select id="selectAllEnabled" resultMap="MenuResultMap">
         SELECT <include refid="BaseColumns"/>
         FROM sys_menu

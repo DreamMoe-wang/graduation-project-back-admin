@@ -24,5 +24,13 @@ public class SystemSettingVO {
 
     private Boolean maintenanceMode;
 
+    private String themeColor;
+
+    private String themeMode;
+
+    private String fontSize;
+
+    private String language;
+
     private String version;
 }

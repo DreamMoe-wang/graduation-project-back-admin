@@ -18,6 +18,8 @@ public class ChatSessionVO {
 
     private Long tradeId;
 
+    private Long orderId;
+
     private String tradeTitle;
 
     private String name;

@@ -2,8 +2,9 @@ package com.example.admin.controller;
 
 import com.example.admin.common.PageResult;
 import com.example.admin.common.Result;
-import com.example.admin.service.PlaceholderModuleService;
-import com.example.admin.vo.PlaceholderPageItemVO;
+import com.example.admin.dto.OperationLogQueryDTO;
+import com.example.admin.service.OperationLogService;
+import com.example.admin.vo.OperationLogVO;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,30 +21,28 @@ import java.util.List;
 @RequestMapping("/log")
 public class LogController {
 
-    private static final String MODULE_NAME = "log";
-
     @Resource
-    private PlaceholderModuleService placeholderModuleService;
+    private OperationLogService operationLogService;
 
     @GetMapping("/page")
-    public Result<PageResult<List<PlaceholderPageItemVO>>> page(Integer pageNum, Integer pageSize) {
-        return Result.success(placeholderModuleService.getPage(MODULE_NAME, pageNum, pageSize));
+    public Result<PageResult<List<OperationLogVO>>> page(OperationLogQueryDTO queryDTO) {
+        return Result.success(operationLogService.page(queryDTO));
     }
 
     @GetMapping("/{id}")
-    public Result<PlaceholderPageItemVO> detail(@PathVariable Long id) {
-        return Result.success(placeholderModuleService.getDetail(MODULE_NAME, id));
+    public Result<OperationLogVO> detail(@PathVariable Long id) {
+        return Result.success(operationLogService.getById(id));
     }
 
     @DeleteMapping("/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
-        boolean success = placeholderModuleService.delete(MODULE_NAME, id);
+        boolean success = operationLogService.delete(id);
         return success ? Result.success("删除成功", true) : Result.error("删除失败");
     }
 
     @DeleteMapping("/clean")
     public Result<Boolean> clean() {
-        boolean success = placeholderModuleService.clean(MODULE_NAME);
+        boolean success = operationLogService.clean();
         return success ? Result.success("清空成功", true) : Result.error("清空失败");
     }
 }

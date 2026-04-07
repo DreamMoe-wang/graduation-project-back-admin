@@ -12,6 +12,11 @@
         <result column="receiver_id" property="receiverId"/>
         <result column="amount" property="amount"/>
         <result column="status" property="status"/>
+        <result column="pay_status" property="payStatus"/>
+        <result column="pay_gateway" property="payGateway"/>
+        <result column="pay_no" property="payNo"/>
+        <result column="pay_time" property="payTime"/>
+        <result column="refund_time" property="refundTime"/>
         <result column="remark" property="remark"/>
         <result column="confirm_time" property="confirmTime"/>
         <result column="finish_time" property="finishTime"/>
@@ -32,15 +37,15 @@
     </sql>
 
     <select id="selectById" resultMap="TradeOrderResultMap">
-        SELECT id, order_no, post_id, publisher_id, receiver_id, amount, status, remark,
-               confirm_time, finish_time, cancel_time, cancel_reason, create_time, update_time
+        SELECT id, order_no, post_id, publisher_id, receiver_id, amount, status, pay_status, pay_gateway, pay_no, pay_time,
+               refund_time, remark, confirm_time, finish_time, cancel_time, cancel_reason, create_time, update_time
         FROM trade_order
         WHERE id = #{id}
     </select>
 
     <select id="selectLatestByPostId" resultMap="TradeOrderResultMap">
-        SELECT id, order_no, post_id, publisher_id, receiver_id, amount, status, remark,
-               confirm_time, finish_time, cancel_time, cancel_reason, create_time, update_time
+        SELECT id, order_no, post_id, publisher_id, receiver_id, amount, status, pay_status, pay_gateway, pay_no, pay_time,
+               refund_time, remark, confirm_time, finish_time, cancel_time, cancel_reason, create_time, update_time
         FROM trade_order
         WHERE post_id = #{postId}
         ORDER BY create_time DESC
@@ -48,8 +53,8 @@
     </select>
 
     <select id="selectPage" resultMap="TradeOrderResultMap">
-        SELECT id, order_no, post_id, publisher_id, receiver_id, amount, status, remark,
-               confirm_time, finish_time, cancel_time, cancel_reason, create_time, update_time
+        SELECT id, order_no, post_id, publisher_id, receiver_id, amount, status, pay_status, pay_gateway, pay_no, pay_time,
+               refund_time, remark, confirm_time, finish_time, cancel_time, cancel_reason, create_time, update_time
         FROM trade_order
         WHERE <include refid="AccessibleConditions"/>
         ORDER BY create_time DESC
@@ -75,11 +80,11 @@
 
     <insert id="insertTradeOrder" parameterType="com.example.admin.entity.TradeOrder" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO trade_order
-        (order_no, post_id, publisher_id, receiver_id, amount, status, remark,
+        (order_no, post_id, publisher_id, receiver_id, amount, status, pay_status, pay_gateway, pay_no, pay_time, refund_time, remark,
          confirm_time, finish_time, cancel_time, cancel_reason, create_time, update_time)
         VALUES
-        (#{orderNo}, #{postId}, #{publisherId}, #{receiverId}, #{amount}, #{status}, #{remark},
-         #{confirmTime}, #{finishTime}, #{cancelTime}, #{cancelReason}, NOW(), NOW())
+        (#{orderNo}, #{postId}, #{publisherId}, #{receiverId}, #{amount}, #{status}, #{payStatus}, #{payGateway}, #{payNo}, #{payTime}, #{refundTime},
+         #{remark}, #{confirmTime}, #{finishTime}, #{cancelTime}, #{cancelReason}, NOW(), NOW())
     </insert>
 
     <update id="updateTradeOrder" parameterType="com.example.admin.entity.TradeOrder">
@@ -90,6 +95,11 @@
             receiver_id = #{receiverId},
             amount = #{amount},
             status = #{status},
+            pay_status = #{payStatus},
+            pay_gateway = #{payGateway},
+            pay_no = #{payNo},
+            pay_time = #{payTime},
+            refund_time = #{refundTime},
             remark = #{remark},
             confirm_time = #{confirmTime},
             finish_time = #{finishTime},

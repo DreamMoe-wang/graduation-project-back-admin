@@ -45,10 +45,31 @@ public class PlaceholderModuleServiceImpl implements PlaceholderModuleService {
     }
 
     @Override
+    public PageResult<List<PlaceholderPageItemVO>> getPublishedPage(String moduleName, Integer pageNum, Integer pageSize) {
+        int currentPage = pageNum == null || pageNum < 1 ? 1 : pageNum;
+        int size = pageSize == null || pageSize < 1 ? 10 : pageSize;
+        long total = moduleItemMapper.countPageByStatus(moduleName, 1);
+        List<PlaceholderPageItemVO> records = moduleItemMapper.selectPageByStatus(moduleName, 1, (long) (currentPage - 1) * size, size)
+                .stream()
+                .map(this::toVO)
+                .collect(Collectors.toList());
+        return PageResult.of(total, records);
+    }
+
+    @Override
     public PlaceholderPageItemVO getDetail(String moduleName, Long id) {
         ModuleItem item = moduleItemMapper.selectById(id, moduleName);
         if (item == null) {
             throw new RuntimeException("数据不存在");
+        }
+        return toVO(item);
+    }
+
+    @Override
+    public PlaceholderPageItemVO getPublishedDetail(String moduleName, Long id) {
+        ModuleItem item = moduleItemMapper.selectByIdAndStatus(id, moduleName, 1);
+        if (item == null) {
+            throw new RuntimeException("公告不存在或未发布");
         }
         return toVO(item);
     }
@@ -97,6 +118,10 @@ public class PlaceholderModuleServiceImpl implements PlaceholderModuleService {
             setting.setServicePhone("400-800-1234");
             setting.setAllowRegister(1);
             setting.setMaintenanceMode(0);
+            setting.setThemeColor("#5B66F3");
+            setting.setThemeMode("light");
+            setting.setFontSize("medium");
+            setting.setLanguage("zh-CN");
             setting.setVersion("0.1.0");
             systemSettingMapper.insertSystemSetting(setting);
         }
@@ -133,6 +158,10 @@ public class PlaceholderModuleServiceImpl implements PlaceholderModuleService {
                 .servicePhone(setting.getServicePhone())
                 .allowRegister(setting.getAllowRegister() != null && setting.getAllowRegister() == 1)
                 .maintenanceMode(setting.getMaintenanceMode() != null && setting.getMaintenanceMode() == 1)
+                .themeColor(setting.getThemeColor())
+                .themeMode(setting.getThemeMode())
+                .fontSize(setting.getFontSize())
+                .language(setting.getLanguage())
                 .version(setting.getVersion())
                 .build();
     }
@@ -143,6 +172,10 @@ public class PlaceholderModuleServiceImpl implements PlaceholderModuleService {
         target.setServicePhone(source.getServicePhone());
         target.setAllowRegister(Boolean.TRUE.equals(source.getAllowRegister()) ? 1 : 0);
         target.setMaintenanceMode(Boolean.TRUE.equals(source.getMaintenanceMode()) ? 1 : 0);
+        target.setThemeColor(StrUtil.blankToDefault(source.getThemeColor(), "#5B66F3"));
+        target.setThemeMode(StrUtil.blankToDefault(source.getThemeMode(), "light"));
+        target.setFontSize(StrUtil.blankToDefault(source.getFontSize(), "medium"));
+        target.setLanguage(StrUtil.blankToDefault(source.getLanguage(), "zh-CN"));
         target.setVersion(source.getVersion());
     }
 

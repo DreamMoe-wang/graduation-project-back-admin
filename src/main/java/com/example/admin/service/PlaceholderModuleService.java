@@ -17,10 +17,14 @@ public interface PlaceholderModuleService {
      */
     PageResult<List<PlaceholderPageItemVO>> getPage(String moduleName, Integer pageNum, Integer pageSize);
 
+    PageResult<List<PlaceholderPageItemVO>> getPublishedPage(String moduleName, Integer pageNum, Integer pageSize);
+
     /**
      * 获取详情
      */
     PlaceholderPageItemVO getDetail(String moduleName, Long id);
+
+    PlaceholderPageItemVO getPublishedDetail(String moduleName, Long id);
 
     /**
      * 新增

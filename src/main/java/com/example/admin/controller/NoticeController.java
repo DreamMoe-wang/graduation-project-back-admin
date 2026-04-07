@@ -34,9 +34,19 @@ public class NoticeController {
         return Result.success(placeholderModuleService.getPage(MODULE_NAME, pageNum, pageSize));
     }
 
+    @GetMapping("/public/page")
+    public Result<PageResult<List<PlaceholderPageItemVO>>> publicPage(Integer pageNum, Integer pageSize) {
+        return Result.success(placeholderModuleService.getPublishedPage(MODULE_NAME, pageNum, pageSize));
+    }
+
     @GetMapping("/{id}")
     public Result<PlaceholderPageItemVO> detail(@PathVariable Long id) {
         return Result.success(placeholderModuleService.getDetail(MODULE_NAME, id));
+    }
+
+    @GetMapping("/public/{id}")
+    public Result<PlaceholderPageItemVO> publicDetail(@PathVariable Long id) {
+        return Result.success(placeholderModuleService.getPublishedDetail(MODULE_NAME, id));
     }
 
     @PostMapping

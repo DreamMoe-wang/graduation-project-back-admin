@@ -41,8 +41,10 @@ public class UserProfileAssembler {
 
         List<String> roleCodes = Collections.emptyList();
         List<String> roleNames = Collections.emptyList();
+        List<Long> roleIds = Collections.emptyList();
         if (includeRoles) {
             List<Role> roles = loadRoles(user.getId());
+            roleIds = roles.stream().map(Role::getId).collect(Collectors.toList());
             roleCodes = roles.stream().map(Role::getRoleCode).collect(Collectors.toList());
             roleNames = roles.stream().map(Role::getRoleName).collect(Collectors.toList());
         }
@@ -56,6 +58,7 @@ public class UserProfileAssembler {
                 .avatar(user.getAvatar())
                 .phone(user.getPhone())
                 .email(user.getEmail())
+                .roleIds(roleIds)
                 .roles(roleCodes)
                 .roleNames(roleNames)
                 .build();

@@ -3,6 +3,7 @@ package com.example.admin.service;
 import com.example.admin.common.PageResult;
 import com.example.admin.dto.RoleDTO;
 import com.example.admin.entity.Role;
+import com.example.admin.vo.RoleDetailVO;
 
 import java.util.List;
 
@@ -19,7 +20,7 @@ public interface RoleService {
     /**
      * 角色详情
      */
-    Role getById(Long id);
+    RoleDetailVO getById(Long id);
 
     /**
      * 新增角色

@@ -33,6 +33,11 @@ public class MenuController {
         return Result.success(menuService.page(pageNum, pageSize));
     }
 
+    @GetMapping("/tree")
+    public Result<List<MenuVO>> tree() {
+        return Result.success(menuService.tree());
+    }
+
     @GetMapping("/{id}")
     public Result<MenuVO> detail(@PathVariable Long id) {
         return Result.success(menuService.getById(id));

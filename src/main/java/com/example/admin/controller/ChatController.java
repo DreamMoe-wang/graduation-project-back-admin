@@ -44,6 +44,11 @@ public class ChatController {
         return Result.success(chatService.openTradeSession(tradeId));
     }
 
+    @PostMapping("/order/{orderId}/session")
+    public Result<ChatSessionVO> openOrderSession(@PathVariable Long orderId) {
+        return Result.success(chatService.openOrderSession(orderId));
+    }
+
     /**
      * 获取会话消息
      */

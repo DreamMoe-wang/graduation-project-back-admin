@@ -5,6 +5,7 @@ import lombok.Data;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
+import java.util.List;
 
 /**
  * 角色新增/编辑参数
@@ -25,4 +26,6 @@ public class RoleDTO {
 
     @Size(max = 255, message = "备注长度不能超过 255")
     private String remark;
+
+    private List<Long> menuIds;
 }
