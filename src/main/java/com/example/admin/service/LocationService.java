@@ -9,6 +9,8 @@ import javax.servlet.http.HttpServletRequest;
  */
 public interface LocationService {
 
+    String getMapAk();
+
     LocationResolveVO reverseGeocode(Double latitude, Double longitude);
 
     LocationResolveVO locateByIp(HttpServletRequest request);

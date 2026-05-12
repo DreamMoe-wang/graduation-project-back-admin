@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * 订单信息
@@ -45,4 +46,6 @@ public class TradeOrderVO {
     private String payGateway;
 
     private String payTime;
+
+    private List<String> imageUrls;
 }

@@ -9,10 +9,12 @@ import com.example.admin.dto.TradeReviewDTO;
 import com.example.admin.dto.TradeSaveDTO;
 import com.example.admin.entity.TradeOrder;
 import com.example.admin.entity.TradePost;
+import com.example.admin.entity.TradePostImage;
 import com.example.admin.entity.TradePostReview;
 import com.example.admin.entity.User;
 import com.example.admin.entity.UserProfile;
 import com.example.admin.mapper.TradeOrderMapper;
+import com.example.admin.mapper.TradePostImageMapper;
 import com.example.admin.mapper.TradePostMapper;
 import com.example.admin.mapper.TradePostReviewMapper;
 import com.example.admin.mapper.UserMapper;
@@ -31,6 +33,8 @@ import javax.annotation.Resource;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -64,6 +68,9 @@ public class TradeServiceImpl implements TradeService {
 
     @Resource
     private TradePostReviewMapper tradePostReviewMapper;
+
+    @Resource
+    private TradePostImageMapper tradePostImageMapper;
 
     @Resource
     private EventPublisher eventPublisher;
@@ -140,6 +147,7 @@ public class TradeServiceImpl implements TradeService {
 
         boolean success = tradePostMapper.insertTradePost(tradePost) > 0;
         if (success) {
+            saveTradePostImages(tradePost.getId(), tradeSaveDTO.getImageUrls());
             eventPublisher.publish("trade.post.created", tradePost.getPostNo());
         }
         return success;
@@ -158,6 +166,7 @@ public class TradeServiceImpl implements TradeService {
 
         boolean success = tradePostMapper.updateTradePost(tradePost) > 0;
         if (success) {
+            saveTradePostImages(tradePost.getId(), tradeSaveDTO.getImageUrls());
             eventPublisher.publish("trade.post.updated", tradePost.getPostNo());
         }
         return success;
@@ -170,6 +179,7 @@ public class TradeServiceImpl implements TradeService {
 
         boolean success = tradePostMapper.deleteById(id) > 0;
         if (success) {
+            tradePostImageMapper.deleteByPostId(id);
             eventPublisher.publish("trade.post.deleted", id);
         }
         return success;
@@ -447,6 +457,7 @@ public class TradeServiceImpl implements TradeService {
         User receiver = relatedOrder == null || relatedOrder.getReceiverId() == null
                 ? null
                 : userMapper.selectById(relatedOrder.getReceiverId());
+        List<String> imageUrls = getTradePostImageUrls(tradePost.getId());
 
         return TradeVO.builder()
                 .id(tradePost.getId())
@@ -464,6 +475,7 @@ public class TradeServiceImpl implements TradeService {
                 .status(formatTradeStatus(tradePost.getStatus()))
                 .createTime(formatDateTime(tradePost.getCreateTime()))
                 .description(tradePost.getContent())
+                .imageUrls(imageUrls)
                 .build();
     }
 
@@ -473,6 +485,7 @@ public class TradeServiceImpl implements TradeService {
         User receiver = order.getReceiverId() == null ? null : userMapper.selectById(order.getReceiverId());
         String title = tradePost == null ? "" : tradePost.getTitle();
         String area = buildLocation(tradePost);
+        List<String> imageUrls = tradePost == null ? Collections.emptyList() : getTradePostImageUrls(tradePost.getId());
 
         return TradeOrderVO.builder()
                 .id(order.getId())
@@ -490,6 +503,7 @@ public class TradeServiceImpl implements TradeService {
                 .payStatusText(formatPayStatusText(order.getPayStatus()))
                 .payGateway(order.getPayGateway())
                 .payTime(formatDateTime(order.getPayTime()))
+                .imageUrls(imageUrls)
                 .build();
     }
 
@@ -575,6 +589,49 @@ public class TradeServiceImpl implements TradeService {
 
         tradePost.setContactName(resolvedContactName);
         tradePost.setContactPhone(resolvedContactPhone);
+    }
+
+    private void saveTradePostImages(Long postId, List<String> imageUrls) {
+        if (postId == null) {
+            return;
+        }
+
+        tradePostImageMapper.deleteByPostId(postId);
+
+        List<String> normalizedUrls = normalizeImageUrls(imageUrls);
+        for (int i = 0; i < normalizedUrls.size(); i++) {
+            TradePostImage image = new TradePostImage();
+            image.setPostId(postId);
+            image.setImageUrl(normalizedUrls.get(i));
+            image.setSortNo(i + 1);
+            tradePostImageMapper.insertTradePostImage(image);
+        }
+    }
+
+    private List<String> getTradePostImageUrls(Long postId) {
+        if (postId == null) {
+            return Collections.emptyList();
+        }
+
+        return tradePostImageMapper.selectByPostId(postId).stream()
+                .map(TradePostImage::getImageUrl)
+                .filter(StrUtil::isNotBlank)
+                .collect(Collectors.toList());
+    }
+
+    private List<String> normalizeImageUrls(List<String> imageUrls) {
+        if (imageUrls == null || imageUrls.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<String> normalizedUrls = new ArrayList<>();
+        for (String imageUrl : imageUrls) {
+            String normalized = StrUtil.emptyToNull(StrUtil.trim(imageUrl));
+            if (normalized != null && !normalizedUrls.contains(normalized)) {
+                normalizedUrls.add(normalized);
+            }
+        }
+        return normalizedUrls;
     }
 
     private void saveReviewRecord(Long postId, Long reviewerId, Integer reviewResult, String reviewRemark) {

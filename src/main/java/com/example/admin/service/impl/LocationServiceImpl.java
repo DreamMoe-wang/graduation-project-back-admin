@@ -2,7 +2,6 @@ package com.example.admin.service.impl;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpRequest;
-import cn.hutool.http.HttpUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.example.admin.config.BaiduMapProperties;
@@ -24,6 +23,11 @@ public class LocationServiceImpl implements LocationService {
 
     @Resource
     private BaiduMapProperties baiduMapProperties;
+
+    @Override
+    public String getMapAk() {
+        return getRequiredJsAk();
+    }
 
     @Override
     public LocationResolveVO reverseGeocode(Double latitude, Double longitude) {
@@ -111,9 +115,17 @@ public class LocationServiceImpl implements LocationService {
     private String getRequiredAk() {
         String ak = baiduMapProperties.getAk();
         if (StrUtil.isBlank(ak)) {
-            throw new RuntimeException("后端未配置百度地图 AK");
+            throw new RuntimeException("后端未配置百度地图 Web 服务 AK");
         }
         return ak.trim();
+    }
+
+    private String getRequiredJsAk() {
+        String jsAk = baiduMapProperties.getJsAk();
+        if (StrUtil.isNotBlank(jsAk)) {
+            return jsAk.trim();
+        }
+        return getRequiredAk();
     }
 
     private int getTimeoutMs() {

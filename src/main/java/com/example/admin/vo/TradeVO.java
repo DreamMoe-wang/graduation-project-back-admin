@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * 交易信息
@@ -45,4 +46,6 @@ public class TradeVO {
     private String createTime;
 
     private String description;
+
+    private List<String> imageUrls;
 }

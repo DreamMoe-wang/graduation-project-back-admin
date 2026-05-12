@@ -21,6 +21,13 @@ public class LocationController {
     @Resource
     private LocationService locationService;
 
+    @GetMapping("/config")
+    public Result<java.util.Map<String, String>> config() {
+        java.util.Map<String, String> data = new java.util.HashMap<>();
+        data.put("ak", locationService.getMapAk());
+        return Result.success(data);
+    }
+
     @GetMapping("/reverse-geocode")
     public Result<LocationResolveVO> reverseGeocode(@RequestParam Double latitude,
                                                     @RequestParam Double longitude) {

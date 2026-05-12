@@ -8,6 +8,7 @@ import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 import javax.validation.constraints.Size;
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * 交易新增/编辑参数
@@ -79,4 +80,9 @@ public class TradeSaveDTO {
      * 描述
      */
     private String description;
+
+    /**
+     * 图片地址列表
+     */
+    private List<String> imageUrls;
 }

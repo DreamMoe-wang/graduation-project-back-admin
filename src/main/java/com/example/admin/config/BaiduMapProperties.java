@@ -16,6 +16,11 @@ public class BaiduMapProperties {
     private String ak;
 
     /**
+     * 百度地图 JS API AK
+     */
+    private String jsAk;
+
+    /**
      * 百度地图接口超时时间，单位毫秒
      */
     private Integer timeoutMs = 5000;
