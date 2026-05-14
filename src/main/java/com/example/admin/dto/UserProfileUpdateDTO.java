@@ -45,6 +45,10 @@ public class UserProfileUpdateDTO {
     @Size(max = 255, message = "详细地址长度不能超过 255")
     private String address;
 
+    private Double longitude;
+
+    private Double latitude;
+
     @Size(max = 500, message = "个人简介长度不能超过 500")
     private String bio;
 }

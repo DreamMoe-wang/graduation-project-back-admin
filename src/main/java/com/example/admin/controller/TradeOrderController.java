@@ -25,17 +25,11 @@ public class TradeOrderController {
     @Resource
     private TradeService tradeService;
 
-    /**
-     * 订单统计
-     */
     @GetMapping("/stats")
     public Result<TradeOrderStatsVO> stats() {
         return Result.success(tradeService.getOrderStats());
     }
 
-    /**
-     * 订单分页
-     */
     @GetMapping("/page")
     public Result<PageResult<List<TradeOrderVO>>> page(
             @RequestParam(defaultValue = "1") Integer pageNum,
@@ -44,44 +38,35 @@ public class TradeOrderController {
         return Result.success(tradeService.getOrderPage(pageNum, pageSize, status));
     }
 
-    /**
-     * 订单详情
-     */
     @GetMapping("/{id}")
     public Result<TradeOrderVO> detail(@PathVariable Long id) {
         return Result.success(tradeService.getOrderDetail(id));
     }
 
-    /**
-     * 接单
-     */
     @PostMapping("/{id}/receive")
     public Result<Boolean> receive(@PathVariable Long id) {
         boolean success = tradeService.receiveOrder(id);
         return success ? Result.success("接单成功", true) : Result.error("接单失败");
     }
 
-    /**
-     * 完成订单
-     */
     @PostMapping("/{id}/complete")
     public Result<Boolean> complete(@PathVariable Long id) {
         boolean success = tradeService.completeOrder(id);
-        return success ? Result.success("订单已完成", true) : Result.error("操作失败");
+        return success ? Result.success("已提交完成，等待委托方确认", true) : Result.error("操作失败");
     }
 
-    /**
-     * 订单支付
-     */
+    @PostMapping("/{id}/confirm")
+    public Result<Boolean> confirm(@PathVariable Long id) {
+        boolean success = tradeService.confirmOrder(id);
+        return success ? Result.success("订单已确认完成", true) : Result.error("操作失败");
+    }
+
     @PostMapping("/{id}/pay")
     public Result<Boolean> pay(@PathVariable Long id) {
         boolean success = tradeService.payOrder(id);
         return success ? Result.success("支付成功", true) : Result.error("支付失败");
     }
 
-    /**
-     * 取消订单
-     */
     @PostMapping("/{id}/cancel")
     public Result<Boolean> cancel(@PathVariable Long id) {
         boolean success = tradeService.cancelOrder(id);

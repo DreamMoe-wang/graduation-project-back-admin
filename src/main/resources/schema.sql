@@ -148,6 +148,43 @@ CREATE TABLE IF NOT EXISTS `trade_post_review` (
     KEY `idx_trade_post_review_reviewer_id` (`reviewer_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='发布审核记录表';
 
+
+
+CREATE TABLE IF NOT EXISTS `trade_category` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+    `category_name` VARCHAR(100) NOT NULL COMMENT 'Category name',
+    `status` TINYINT NOT NULL DEFAULT 1 COMMENT '0-disabled,1-enabled',
+    `requires_qualification` TINYINT NOT NULL DEFAULT 0 COMMENT '0-no,1-yes',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create time',
+    `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Update time',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_trade_category_name` (`category_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Trade category';
+
+CREATE TABLE IF NOT EXISTS `trade_post_category` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+    `post_id` BIGINT NOT NULL COMMENT 'Trade post id',
+    `category_id` BIGINT NOT NULL COMMENT 'Trade category id',
+    `sort_no` INT NOT NULL DEFAULT 0 COMMENT 'Sort no',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create time',
+    PRIMARY KEY (`id`),
+    KEY `idx_trade_post_category_post_id` (`post_id`),
+    KEY `idx_trade_post_category_category_id` (`category_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Trade post category relation';
+
+INSERT INTO `trade_category` (`id`, `category_name`, `status`, `requires_qualification`)
+VALUES
+    (3001, '??', 1, 1),
+    (3002, '??', 1, 1),
+    (3003, '??', 1, 1),
+    (3004, 'PPT??', 1, 0),
+    (3005, '??', 1, 0),
+    (3006, '??', 1, 0)
+ON DUPLICATE KEY UPDATE
+    `category_name` = VALUES(`category_name`),
+    `status` = VALUES(`status`),
+    `requires_qualification` = VALUES(`requires_qualification`);
+
 CREATE TABLE IF NOT EXISTS `trade_order` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `order_no` VARCHAR(32) NOT NULL COMMENT '订单号',
@@ -300,7 +337,8 @@ ON DUPLICATE KEY UPDATE
     `password` = VALUES(`password`),
     `nickname` = VALUES(`nickname`),
     `email` = VALUES(`email`),
-    `status` = VALUES(`status`);
+    `status` = VALUES(`status`),
+    `requires_qualification` = VALUES(`requires_qualification`);
 
 INSERT IGNORE INTO `sys_user_role` (`user_id`, `role_id`)
 VALUES
@@ -374,7 +412,7 @@ CREATE TABLE IF NOT EXISTS `sys_user_profile` (
     `area_name` VARCHAR(50) DEFAULT NULL COMMENT '区域',
     `address` VARCHAR(255) DEFAULT NULL COMMENT '详细地址',
     `bio` VARCHAR(500) DEFAULT NULL COMMENT '个人简介',
-    `wallet_balance` DECIMAL(12, 2) NOT NULL DEFAULT 1000.00 COMMENT '钱包余额',
+    `wallet_balance` DECIMAL(12, 2) NOT NULL DEFAULT 100000.00 COMMENT '钱包余额',
     `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
@@ -383,7 +421,7 @@ CREATE TABLE IF NOT EXISTS `sys_user_profile` (
 
 INSERT INTO `sys_user_profile` (`id`, `user_id`, `real_name`, `gender`, `city_name`, `area_name`, `address`, `bio`, `wallet_balance`)
 VALUES
-    (1, 1, '系统管理员', 1, '北京', '海淀区', '中关村软件园', '负责平台审核与管理', 10000.00)
+    (1, 1, '系统管理员', 1, '北京', '海淀区', '中关村软件园', '负责平台审核与管理', 100000.00)
 ON DUPLICATE KEY UPDATE
     `real_name` = VALUES(`real_name`),
     `gender` = VALUES(`gender`),
@@ -392,4 +430,175 @@ ON DUPLICATE KEY UPDATE
     `address` = VALUES(`address`),
     `bio` = VALUES(`bio`),
     `wallet_balance` = VALUES(`wallet_balance`);
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- =============================================
+-- 基本信息认证
+-- =============================================
+
+SET FOREIGN_KEY_CHECKS = 0;
+
+CREATE TABLE IF NOT EXISTS `user_qualification` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `user_id` BIGINT NOT NULL COMMENT '用户ID',
+    `applicant_name` VARCHAR(50) NOT NULL COMMENT '申请人',
+    `contact_phone` VARCHAR(20) NOT NULL COMMENT '联系电话',
+    `real_name` VARCHAR(50) NOT NULL COMMENT '真实姓名',
+    `id_card_no` VARCHAR(18) NOT NULL COMMENT '身份证号',
+    `qualification_type` VARCHAR(100) NOT NULL COMMENT '资格类型',
+    `qualification_no` VARCHAR(100) NOT NULL COMMENT '资格编号',
+    `qualification_org` VARCHAR(100) NOT NULL COMMENT '发证机构',
+    `city_name` VARCHAR(50) DEFAULT NULL COMMENT '城市',
+    `area_name` VARCHAR(50) DEFAULT NULL COMMENT '区域',
+    `address` VARCHAR(255) DEFAULT NULL COMMENT '详细地址',
+    `id_card_front_url` VARCHAR(255) NOT NULL COMMENT '身份证正面',
+    `id_card_back_url` VARCHAR(255) NOT NULL COMMENT '身份证反面',
+    `description` VARCHAR(500) DEFAULT NULL COMMENT '补充说明',
+    `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态：0-草稿，1-审核中，2-已通过，3-未通过',
+    `reviewer_id` BIGINT DEFAULT NULL COMMENT '审核人ID',
+    `review_time` DATETIME DEFAULT NULL COMMENT '审核时间',
+    `review_remark` VARCHAR(255) DEFAULT NULL COMMENT '审核说明',
+    `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0-未删除，1-已删除',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_user_qualification_status` (`status`),
+    KEY `idx_user_qualification_reviewer_id` (`reviewer_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户基本信息认证表';
+
+CREATE TABLE IF NOT EXISTS `user_qualification_image` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `qualification_id` BIGINT NOT NULL COMMENT '认证ID',
+    `image_url` VARCHAR(255) NOT NULL COMMENT '图片地址',
+    `sort_no` INT NOT NULL DEFAULT 0 COMMENT '排序号',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_user_qualification_image_qualification_id` (`qualification_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='认证资格证明图片表';
+
+CREATE TABLE IF NOT EXISTS `user_qualification_review` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `qualification_id` BIGINT NOT NULL COMMENT '认证ID',
+    `reviewer_id` BIGINT NOT NULL COMMENT '审核人ID',
+    `review_result` TINYINT NOT NULL COMMENT '审核结果：1-通过，2-驳回',
+    `review_remark` VARCHAR(255) DEFAULT NULL COMMENT '审核说明',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_user_qualification_review_qualification_id` (`qualification_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='认证审核记录表';
+
+INSERT INTO `sys_menu`
+(`id`, `parent_id`, `menu_name`, `menu_type`, `path`, `route_name`, `component`, `icon`, `permission_code`, `sort_no`, `visible`, `status`, `remark`)
+VALUES
+    (1040, 0, CONVERT(0xE59FBAE69CACE4BFA1E681AFE8AEA4E8AF81 USING utf8mb4), 2, '/qualification', 'QualificationManage', 'qualification/QualificationManage', 'Medal', 'qualification:view', 2, 1, 1, 'Qualification page'),
+    (1041, 1040, CONVERT(0xE58F91E8B5B7E8AEA4E8AF81E68C89E992AE USING utf8mb4), 3, NULL, NULL, NULL, NULL, 'qualification:create', 1, 0, 1, 'Create qualification'),
+    (1042, 1040, CONVERT(0xE4BFAEE694B9E8AEA4E8AF81E68C89E992AE USING utf8mb4), 3, NULL, NULL, NULL, NULL, 'qualification:edit', 2, 0, 1, 'Edit qualification'),
+    (1043, 1040, CONVERT(0xE4BF9DE5AD98E88D89E7A8BFE68C89E992AE USING utf8mb4), 3, NULL, NULL, NULL, NULL, 'qualification:save', 3, 0, 1, 'Save qualification draft'),
+    (1044, 1040, CONVERT(0xE68F90E4BAA4E5AEA1E6A0B8E68C89E992AE USING utf8mb4), 3, NULL, NULL, NULL, NULL, 'qualification:submit', 4, 0, 1, 'Submit qualification'),
+    (1045, 1040, CONVERT(0xE8AEA4E8AF81E5AEA1E6A0B8E68C89E992AE USING utf8mb4), 3, NULL, NULL, NULL, NULL, 'qualification:review', 5, 0, 1, 'Review qualification')
+ON DUPLICATE KEY UPDATE
+    `parent_id` = VALUES(`parent_id`),
+    `menu_name` = VALUES(`menu_name`),
+    `menu_type` = VALUES(`menu_type`),
+    `path` = VALUES(`path`),
+    `route_name` = VALUES(`route_name`),
+    `component` = VALUES(`component`),
+    `icon` = VALUES(`icon`),
+    `permission_code` = VALUES(`permission_code`),
+    `sort_no` = VALUES(`sort_no`),
+    `visible` = VALUES(`visible`),
+    `status` = VALUES(`status`),
+    `remark` = VALUES(`remark`);
+
+INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`)
+VALUES
+    (1, 1040), (1, 1041), (1, 1042), (1, 1043), (1, 1044), (1, 1045),
+    (2, 1040), (2, 1041), (2, 1042), (2, 1043), (2, 1044);
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+
+-- =============================================
+-- Qualification
+-- =============================================
+
+SET FOREIGN_KEY_CHECKS = 0;
+
+CREATE TABLE IF NOT EXISTS `user_qualification` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+    `user_id` BIGINT NOT NULL COMMENT 'User id',
+    `applicant_name` VARCHAR(50) NOT NULL COMMENT 'Applicant name',
+    `contact_phone` VARCHAR(20) NOT NULL COMMENT 'Contact phone',
+    `real_name` VARCHAR(50) NOT NULL COMMENT 'Real name',
+    `id_card_no` VARCHAR(18) NOT NULL COMMENT 'ID card no',
+    `qualification_type` VARCHAR(100) NOT NULL COMMENT 'Qualification type',
+    `qualification_no` VARCHAR(100) NOT NULL COMMENT 'Qualification no',
+    `qualification_org` VARCHAR(100) NOT NULL COMMENT 'Issuing organization',
+    `city_name` VARCHAR(50) DEFAULT NULL COMMENT 'City name',
+    `area_name` VARCHAR(50) DEFAULT NULL COMMENT 'Area name',
+    `address` VARCHAR(255) DEFAULT NULL COMMENT 'Address',
+    `id_card_front_url` VARCHAR(255) NOT NULL COMMENT 'ID card front image',
+    `id_card_back_url` VARCHAR(255) NOT NULL COMMENT 'ID card back image',
+    `description` VARCHAR(500) DEFAULT NULL COMMENT 'Description',
+    `status` TINYINT NOT NULL DEFAULT 0 COMMENT '0-draft,1-auditing,2-approved,3-rejected',
+    `reviewer_id` BIGINT DEFAULT NULL COMMENT 'Reviewer id',
+    `review_time` DATETIME DEFAULT NULL COMMENT 'Review time',
+    `review_remark` VARCHAR(255) DEFAULT NULL COMMENT 'Review remark',
+    `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '0-active,1-deleted',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create time',
+    `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Update time',
+    PRIMARY KEY (`id`),
+    KEY `idx_user_qualification_status` (`status`),
+    KEY `idx_user_qualification_reviewer_id` (`reviewer_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='User qualification';
+
+CREATE TABLE IF NOT EXISTS `user_qualification_image` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+    `qualification_id` BIGINT NOT NULL COMMENT 'Qualification id',
+    `image_url` VARCHAR(255) NOT NULL COMMENT 'Image url',
+    `sort_no` INT NOT NULL DEFAULT 0 COMMENT 'Sort no',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create time',
+    PRIMARY KEY (`id`),
+    KEY `idx_user_qualification_image_qualification_id` (`qualification_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Qualification proof image';
+
+CREATE TABLE IF NOT EXISTS `user_qualification_review` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+    `qualification_id` BIGINT NOT NULL COMMENT 'Qualification id',
+    `reviewer_id` BIGINT NOT NULL COMMENT 'Reviewer id',
+    `review_result` TINYINT NOT NULL COMMENT '1-approved,2-rejected',
+    `review_remark` VARCHAR(255) DEFAULT NULL COMMENT 'Review remark',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create time',
+    PRIMARY KEY (`id`),
+    KEY `idx_user_qualification_review_qualification_id` (`qualification_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Qualification review record';
+
+INSERT INTO `sys_menu`
+(`id`, `parent_id`, `menu_name`, `menu_type`, `path`, `route_name`, `component`, `icon`, `permission_code`, `sort_no`, `visible`, `status`, `remark`)
+VALUES
+    (1040, 0, CONVERT(0xE59FBAE69CACE4BFA1E681AFE8AEA4E8AF81 USING utf8mb4), 2, '/qualification', 'QualificationManage', 'qualification/QualificationManage', 'Medal', 'qualification:view', 2, 1, 1, 'Qualification page'),
+    (1041, 1040, CONVERT(0xE58F91E8B5B7E8AEA4E8AF81E68C89E992AE USING utf8mb4), 3, NULL, NULL, NULL, NULL, 'qualification:create', 1, 0, 1, 'Create qualification'),
+    (1042, 1040, CONVERT(0xE4BFAEE694B9E8AEA4E8AF81E68C89E992AE USING utf8mb4), 3, NULL, NULL, NULL, NULL, 'qualification:edit', 2, 0, 1, 'Edit qualification'),
+    (1043, 1040, CONVERT(0xE4BF9DE5AD98E88D89E7A8BFE68C89E992AE USING utf8mb4), 3, NULL, NULL, NULL, NULL, 'qualification:save', 3, 0, 1, 'Save qualification draft'),
+    (1044, 1040, CONVERT(0xE68F90E4BAA4E5AEA1E6A0B8E68C89E992AE USING utf8mb4), 3, NULL, NULL, NULL, NULL, 'qualification:submit', 4, 0, 1, 'Submit qualification'),
+    (1045, 1040, CONVERT(0xE8AEA4E8AF81E5AEA1E6A0B8E68C89E992AE USING utf8mb4), 3, NULL, NULL, NULL, NULL, 'qualification:review', 5, 0, 1, 'Review qualification')
+ON DUPLICATE KEY UPDATE
+    `parent_id` = VALUES(`parent_id`),
+    `menu_name` = VALUES(`menu_name`),
+    `menu_type` = VALUES(`menu_type`),
+    `path` = VALUES(`path`),
+    `route_name` = VALUES(`route_name`),
+    `component` = VALUES(`component`),
+    `icon` = VALUES(`icon`),
+    `permission_code` = VALUES(`permission_code`),
+    `sort_no` = VALUES(`sort_no`),
+    `visible` = VALUES(`visible`),
+    `status` = VALUES(`status`),
+    `remark` = VALUES(`remark`);
+
+INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`)
+VALUES
+    (1, 1040), (1, 1041), (1, 1042), (1, 1043), (1, 1044), (1, 1045),
+    (2, 1040), (2, 1041), (2, 1042), (2, 1043), (2, 1044);
+
 SET FOREIGN_KEY_CHECKS = 1;

@@ -23,4 +23,12 @@ public class DashboardOverviewVO {
     private Long orderCount;
 
     private BigDecimal salesAmount;
+
+    private Long publishOrderCount;
+
+    private Long receiveOrderCount;
+
+    private BigDecimal publishAmount;
+
+    private BigDecimal receiveAmount;
 }

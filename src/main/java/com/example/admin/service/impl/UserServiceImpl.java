@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
 public class UserServiceImpl implements UserService {
 
     private static final String DEFAULT_USER_ROLE_CODE = "USER";
-    private static final BigDecimal DEFAULT_WALLET_BALANCE = new BigDecimal("1000.00");
+    private static final BigDecimal DEFAULT_WALLET_BALANCE = new BigDecimal("100000.00");
 
     @Resource
     private UserMapper userMapper;
@@ -105,6 +105,8 @@ public class UserServiceImpl implements UserService {
         userProfile.setCityName(updateDTO.getCityName());
         userProfile.setAreaName(updateDTO.getAreaName());
         userProfile.setAddress(updateDTO.getAddress());
+        userProfile.setLongitude(updateDTO.getLongitude());
+        userProfile.setLatitude(updateDTO.getLatitude());
         userProfile.setBio(updateDTO.getBio());
         userProfileMapper.updateUserProfile(userProfile);
 
@@ -329,6 +331,8 @@ public class UserServiceImpl implements UserService {
         profileVO.setCityName(userProfile.getCityName());
         profileVO.setAreaName(userProfile.getAreaName());
         profileVO.setAddress(userProfile.getAddress());
+        profileVO.setLongitude(userProfile.getLongitude());
+        profileVO.setLatitude(userProfile.getLatitude());
         profileVO.setBio(userProfile.getBio());
         profileVO.setWalletBalance(userProfile.getWalletBalance());
         return profileVO;

@@ -15,6 +15,8 @@
         <result column="city_name" property="cityName"/>
         <result column="area_name" property="areaName"/>
         <result column="address" property="address"/>
+        <result column="longitude" property="longitude"/>
+        <result column="latitude" property="latitude"/>
         <result column="contact_name" property="contactName"/>
         <result column="contact_phone" property="contactPhone"/>
         <result column="status" property="status"/>
@@ -23,15 +25,23 @@
         <result column="review_remark" property="reviewRemark"/>
         <result column="publish_time" property="publishTime"/>
         <result column="off_shelf_time" property="offShelfTime"/>
+        <result column="category_names_text" property="categoryNamesText"/>
         <result column="deleted" property="deleted"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
 
     <sql id="BaseColumns">
-        id, post_no, publisher_id, post_type, title, content, price, city_name, area_name, address,
+        id, post_no, publisher_id, post_type, title, content, price, city_name, area_name, address, longitude, latitude,
         contact_name, contact_phone, status, reviewer_id, review_time, review_remark, publish_time,
-        off_shelf_time, deleted, create_time, update_time
+        off_shelf_time,
+        (
+            SELECT GROUP_CONCAT(tc.category_name ORDER BY tpc.sort_no ASC SEPARATOR ',')
+            FROM trade_post_category tpc
+            LEFT JOIN trade_category tc ON tc.id = tpc.category_id
+            WHERE tpc.post_id = trade_post.id
+        ) AS category_names_text,
+        deleted, create_time, update_time
     </sql>
 
     <sql id="QueryConditions">
@@ -39,8 +49,11 @@
         <if test="query != null and query.title != null and query.title != ''">
             AND title LIKE CONCAT('%', #{query.title}, '%')
         </if>
-        <if test="query != null and query.status != null and query.status != ''">
-            AND status = #{query.status}
+        <if test="query != null and query.statusList != null and query.statusList.size() > 0">
+            AND status IN
+            <foreach collection="query.statusList" item="statusItem" open="(" separator="," close=")">
+                #{statusItem}
+            </foreach>
         </if>
         <if test="query != null and query.minAmount != null">
             AND price <![CDATA[>=]]> #{query.minAmount}
@@ -67,7 +80,7 @@
                 SELECT 1
                 FROM trade_order o
                 WHERE o.post_id = trade_post.id
-                  AND o.status IN (0, 1, 2)
+                  AND o.status IN (0, 1, 2, 3)
             )
         </if>
     </sql>
@@ -83,7 +96,15 @@
         SELECT <include refid="BaseColumns"/>
         FROM trade_post
         WHERE <include refid="QueryConditions"/>
-        ORDER BY create_time DESC
+        ORDER BY
+        CASE WHEN #{query.userCityName} IS NOT NULL AND city_name = #{query.userCityName} THEN 0 ELSE 1 END ASC,
+        CASE WHEN #{query.userAreaName} IS NOT NULL AND area_name = #{query.userAreaName} THEN 0 ELSE 1 END ASC,
+        CASE
+            WHEN #{query.userLongitude} IS NOT NULL AND #{query.userLatitude} IS NOT NULL AND longitude IS NOT NULL AND latitude IS NOT NULL
+            THEN POW(longitude - #{query.userLongitude}, 2) + POW(latitude - #{query.userLatitude}, 2)
+            ELSE 99999999
+        END ASC,
+        create_time DESC
         LIMIT #{offset}, #{pageSize}
     </select>
 
@@ -101,11 +122,11 @@
 
     <insert id="insertTradePost" parameterType="com.example.admin.entity.TradePost" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO trade_post
-        (post_no, publisher_id, post_type, title, content, price, city_name, area_name, address,
+        (post_no, publisher_id, post_type, title, content, price, city_name, area_name, address, longitude, latitude,
          contact_name, contact_phone, status, reviewer_id, review_time, review_remark, publish_time,
          off_shelf_time, deleted, create_time, update_time)
         VALUES
-        (#{postNo}, #{publisherId}, #{postType}, #{title}, #{content}, #{price}, #{cityName}, #{areaName}, #{address},
+        (#{postNo}, #{publisherId}, #{postType}, #{title}, #{content}, #{price}, #{cityName}, #{areaName}, #{address}, #{longitude}, #{latitude},
          #{contactName}, #{contactPhone}, #{status}, #{reviewerId}, #{reviewTime}, #{reviewRemark}, #{publishTime},
          #{offShelfTime}, #{deleted}, NOW(), NOW())
     </insert>
@@ -121,6 +142,8 @@
             city_name = #{cityName},
             area_name = #{areaName},
             address = #{address},
+            longitude = #{longitude},
+            latitude = #{latitude},
             contact_name = #{contactName},
             contact_phone = #{contactPhone},
             status = #{status},
@@ -142,5 +165,16 @@
         WHERE id = #{id}
           AND deleted = 0
     </update>
+
+    <select id="selectApprovedCategoryNames" resultType="string">
+        SELECT DISTINCT tc.category_name
+        FROM trade_post tp
+        INNER JOIN trade_post_category tpc ON tpc.post_id = tp.id
+        INNER JOIN trade_category tc ON tc.id = tpc.category_id
+        WHERE tp.deleted = 0
+          AND tp.status = 3
+          AND tc.status = 1
+        ORDER BY tc.category_name ASC
+    </select>
 
 </mapper>

@@ -72,10 +72,46 @@
         FROM trade_order
     </select>
 
+    <select id="countByPublisher" resultType="long">
+        SELECT COUNT(1)
+        FROM trade_order
+        WHERE 1 = 1
+        <if test="!admin">
+            AND publisher_id = #{currentUserId}
+        </if>
+    </select>
+
+    <select id="countByReceiver" resultType="long">
+        SELECT COUNT(1)
+        FROM trade_order
+        WHERE 1 = 1
+        <if test="!admin">
+            AND receiver_id = #{currentUserId}
+        </if>
+    </select>
+
     <select id="sumCompletedAmount" resultType="java.math.BigDecimal">
         SELECT COALESCE(SUM(amount), 0)
         FROM trade_order
         WHERE status = 2
+    </select>
+
+    <select id="sumCompletedAmountByPublisher" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(amount), 0)
+        FROM trade_order
+        WHERE status = 2
+        <if test="!admin">
+            AND publisher_id = #{currentUserId}
+        </if>
+    </select>
+
+    <select id="sumCompletedAmountByReceiver" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(amount), 0)
+        FROM trade_order
+        WHERE status = 2
+        <if test="!admin">
+            AND receiver_id = #{currentUserId}
+        </if>
     </select>
 
     <insert id="insertTradeOrder" parameterType="com.example.admin.entity.TradeOrder" useGeneratedKeys="true" keyProperty="id">

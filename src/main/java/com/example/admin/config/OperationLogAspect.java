@@ -13,7 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -37,7 +36,8 @@ public class OperationLogAspect {
     static {
         MENU_MAPPING.put("/trade/publish", new MenuInfo("交易发布", "/trade/publish"));
         MENU_MAPPING.put("/trade/list", new MenuInfo("交易大全", "/trade/list"));
-        MENU_MAPPING.put("/trade/order", new MenuInfo("订单大全", "/trade/order"));
+        MENU_MAPPING.put("/trade/order", new MenuInfo("我的订单", "/trade/order"));
+        MENU_MAPPING.put("/qualification", new MenuInfo("资格认证", "/qualification"));
         MENU_MAPPING.put("/user/profile", new MenuInfo("个人中心", "/profile"));
         MENU_MAPPING.put("/user", new MenuInfo("用户管理", "/user"));
         MENU_MAPPING.put("/role", new MenuInfo("角色管理", "/role"));
@@ -70,24 +70,24 @@ public class OperationLogAspect {
 
         try {
             Object result = joinPoint.proceed();
-            writeOperationLog(joinPoint, request, normalizedPath, requestMethod, result, null, startTime);
+            writeOperationLog(request, normalizedPath, requestMethod, result, null, startTime, joinPoint.getArgs());
             return result;
         } catch (Throwable throwable) {
-            writeOperationLog(joinPoint, request, normalizedPath, requestMethod, null, throwable, startTime);
+            writeOperationLog(request, normalizedPath, requestMethod, null, throwable, startTime, joinPoint.getArgs());
             throw throwable;
         }
     }
 
-    private void writeOperationLog(ProceedingJoinPoint joinPoint,
-                                   HttpServletRequest request,
+    private void writeOperationLog(HttpServletRequest request,
                                    String normalizedPath,
                                    String requestMethod,
                                    Object result,
                                    Throwable throwable,
-                                   long startTime) {
+                                   long startTime,
+                                   Object[] args) {
         try {
             MenuInfo menuInfo = resolveMenuInfo(normalizedPath);
-            String username = resolveUsername(result, joinPoint.getArgs(), normalizedPath);
+            String username = resolveUsername(result, args, normalizedPath);
             Long userId = resolveUserId(result);
             boolean success = throwable == null;
             String resultMessage = success ? "操作成功" : throwable.getMessage();
@@ -156,6 +156,7 @@ public class OperationLogAspect {
                     || normalizedPath.endsWith("/stats")
                     || normalizedPath.endsWith("/export")
                     || normalizedPath.endsWith("/profile/current")
+                    || normalizedPath.endsWith("/current")
                     || normalizedPath.matches(".*/\\d+$");
         }
 

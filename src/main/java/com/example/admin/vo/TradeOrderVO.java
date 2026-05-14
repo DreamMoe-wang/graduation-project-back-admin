@@ -48,4 +48,6 @@ public class TradeOrderVO {
     private String payTime;
 
     private List<String> imageUrls;
+
+    private List<String> categoryNames;
 }

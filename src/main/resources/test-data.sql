@@ -105,6 +105,34 @@ ON DUPLICATE KEY UPDATE
     `deleted` = VALUES(`deleted`),
     `update_time` = VALUES(`update_time`);
 
+
+
+INSERT INTO `trade_category` (`id`, `category_name`, `status`, `requires_qualification`)
+VALUES
+    (3001, '??', 1, 1),
+    (3002, '??', 1, 1),
+    (3003, '??', 1, 1),
+    (3004, 'PPT??', 1, 0),
+    (3005, '??', 1, 0),
+    (3006, '??', 1, 0)
+ON DUPLICATE KEY UPDATE
+    `category_name` = VALUES(`category_name`),
+    `status` = VALUES(`status`),
+    `requires_qualification` = VALUES(`requires_qualification`);
+
+INSERT INTO `trade_post_category`
+(`id`, `post_id`, `category_id`, `sort_no`, `create_time`)
+VALUES
+    (3101, 101, 3001, 1, '2026-03-25 08:35:00'),
+    (3102, 102, 3002, 1, '2026-03-26 11:05:00'),
+    (3103, 103, 3003, 1, '2026-03-27 13:25:00'),
+    (3104, 104, 3004, 1, '2026-03-28 09:12:00'),
+    (3105, 105, 3005, 1, '2026-03-24 13:32:00'),
+    (3106, 106, 3006, 1, '2026-03-29 15:02:00')
+ON DUPLICATE KEY UPDATE
+    `category_id` = VALUES(`category_id`),
+    `sort_no` = VALUES(`sort_no`);
+
 INSERT INTO `trade_post_image`
 (`id`, `post_id`, `image_url`, `sort_no`, `create_time`)
 VALUES
@@ -137,9 +165,9 @@ INSERT INTO `trade_order`
  `confirm_time`, `finish_time`, `cancel_time`, `cancel_reason`, `create_time`, `update_time`)
 VALUES
     (201, 'TO202603310001', 101, 11, 12, 150.00, 1, 1, 'mock', 'MOCKPAY-201', '2026-03-25 09:55:00', NULL, '已预约周末上门清洗', '2026-03-25 10:00:00', NULL, NULL, NULL, '2026-03-25 09:40:00', '2026-03-25 10:00:00'),
-    (202, 'TO202603310002', 105, 12, 11, 120.00, 2, 3, 'mock', 'MOCKPAY-202', '2026-03-24 15:50:00', NULL, '系统重装已完成', '2026-03-24 16:00:00', '2026-03-30 18:00:00', NULL, NULL, '2026-03-24 15:20:00', '2026-03-30 18:00:00'),
+    (202, 'TO202603310002', 105, 12, 11, 120.00, 3, 3, 'mock', 'MOCKPAY-202', '2026-03-24 15:50:00', NULL, '系统重装已完成', '2026-03-24 16:00:00', '2026-03-30 18:00:00', NULL, NULL, '2026-03-24 15:20:00', '2026-03-30 18:00:00'),
     (203, 'TO202603310003', 106, 15, 13, 300.00, 0, 0, NULL, NULL, NULL, NULL, '等待接单人确认排课时间', NULL, NULL, NULL, NULL, '2026-03-30 09:00:00', '2026-03-30 09:00:00'),
-    (204, 'TO202603310004', 101, 11, 14, 180.00, 3, 2, 'mock', 'MOCKPAY-204', '2026-03-26 11:20:00', '2026-03-26 12:31:00', '服务时间冲突，已取消', NULL, NULL, '2026-03-26 12:30:00', '双方时间冲突', '2026-03-26 11:00:00', '2026-03-26 12:30:00')
+    (204, 'TO202603310004', 101, 11, 14, 180.00, 4, 2, 'mock', 'MOCKPAY-204', '2026-03-26 11:20:00', '2026-03-26 12:31:00', '服务时间冲突，已取消', NULL, NULL, '2026-03-26 12:30:00', '双方时间冲突', '2026-03-26 11:00:00', '2026-03-26 12:30:00')
 ON DUPLICATE KEY UPDATE
     `amount` = VALUES(`amount`),
     `status` = VALUES(`status`),
@@ -215,11 +243,11 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO `sys_user_profile`
 (`id`, `user_id`, `real_name`, `gender`, `birthday`, `city_name`, `area_name`, `address`, `bio`, `wallet_balance`)
 VALUES
-    (1, 11, 'Alice Wang', 2, '2000-03-18', '北京', '海淀区', '中关村软件园一期', '喜欢整理任务流程和做计划。', 1680.00),
-    (2, 12, 'Bob Li', 1, '1999-11-05', '北京', '朝阳区', '望京 SOHO', '擅长数码维修和上门服务。', 990.00),
-    (3, 13, 'Carol Chen', 2, '2001-07-12', '北京', '昌平区', '沙河高教园', '校内跑腿和快递代取都很熟。', 1000.00),
-    (4, 14, 'David Zhang', 1, '1998-09-22', '北京', '丰台区', '科技园区', '专注演示文稿与设计美化。', 1180.00),
-    (5, 15, 'Erin Liu', 2, '2000-01-08', '北京', '西城区', '金融街附近', '有家教和学习辅导经验。', 700.00)
+    (1, 11, 'Alice Wang', 2, '2000-03-18', '北京', '海淀区', '中关村软件园一期', '喜欢整理任务流程和做计划。', 100000.00),
+    (2, 12, 'Bob Li', 1, '1999-11-05', '北京', '朝阳区', '望京 SOHO', '擅长数码维修和上门服务。', 100000.00),
+    (3, 13, 'Carol Chen', 2, '2001-07-12', '北京', '昌平区', '沙河高教园', '校内跑腿和快递代取都很熟。', 100000.00),
+    (4, 14, 'David Zhang', 1, '1998-09-22', '北京', '丰台区', '科技园区', '专注演示文稿与设计美化。', 100000.00),
+    (5, 15, 'Erin Liu', 2, '2000-01-08', '北京', '西城区', '金融街附近', '有家教和学习辅导经验。', 100000.00)
 ON DUPLICATE KEY UPDATE
     `real_name` = VALUES(`real_name`),
     `gender` = VALUES(`gender`),
@@ -229,4 +257,72 @@ ON DUPLICATE KEY UPDATE
     `address` = VALUES(`address`),
     `bio` = VALUES(`bio`),
     `wallet_balance` = VALUES(`wallet_balance`);
+
+-- =============================================
+-- 资格认证测试数据
+-- 状态：0-草稿，1-审核中，2-已通过，3-未通过
+-- =============================================
+
+INSERT INTO `user_qualification`
+(`id`, `user_id`, `applicant_name`, `contact_phone`, `real_name`, `id_card_no`, `qualification_type`, `qualification_no`, `qualification_org`,
+ `city_name`, `area_name`, `address`, `id_card_front_url`, `id_card_back_url`, `description`, `status`, `reviewer_id`, `review_time`, `review_remark`,
+ `deleted`, `create_time`, `update_time`)
+VALUES
+    (2001, 11, '爱丽丝', '13800138011', 'Alice Wang', '110101200003180011', '家政清洗', 'Q-ALICE-001', '北京家政服务协会',
+     '北京', '海淀区', '中关村软件园一期', 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/qualification/alice-id-front.jpg',
+     'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/qualification/alice-id-back.jpg', '具备上门家电清洗与保洁经验。', 2, 1,
+     '2026-03-25 08:45:00', '身份与资格证明完整，审核通过', 0, '2026-03-25 08:00:00', '2026-03-25 08:45:00'),
+    (2002, 12, '鲍勃', '13800138012', 'Bob Li', '110101199911050022', '电脑维修', 'Q-BOB-002', '北京电子维修职业中心',
+     '北京', '朝阳区', '望京 SOHO', 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/qualification/bob-id-front.jpg',
+     'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/qualification/bob-id-back.jpg', '擅长系统重装与故障排查。', 1, NULL,
+     NULL, NULL, 0, '2026-03-29 10:00:00', '2026-03-29 10:00:00'),
+    (2003, 13, '卡罗尔', '13800138013', 'Carol Chen', '110101200107120033', '校园跑腿', 'Q-CAROL-003', '校园服务备案',
+     '北京', '昌平区', '沙河高教园', 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/qualification/carol-id-front.jpg',
+     'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/qualification/carol-id-back.jpg', '可提供校内取件、代办等服务。', 3, 1,
+     '2026-03-28 11:20:00', '资格证明不够清晰，请重新上传原件照片', 0, '2026-03-28 09:30:00', '2026-03-28 11:20:00'),
+    (2004, 15, '艾琳', '13800138015', 'Erin Liu', '110101200001080044', '家教辅导', 'Q-ERIN-004', '教师资格认定中心',
+     '北京', '西城区', '金融街附近', 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/qualification/erin-id-front.jpg',
+     'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/qualification/erin-id-back.jpg', '家教经验丰富，已整理授课案例。', 0, NULL,
+     NULL, NULL, 0, '2026-03-30 09:00:00', '2026-03-30 09:00:00')
+ON DUPLICATE KEY UPDATE
+    `applicant_name` = VALUES(`applicant_name`),
+    `contact_phone` = VALUES(`contact_phone`),
+    `real_name` = VALUES(`real_name`),
+    `id_card_no` = VALUES(`id_card_no`),
+    `qualification_type` = VALUES(`qualification_type`),
+    `qualification_no` = VALUES(`qualification_no`),
+    `qualification_org` = VALUES(`qualification_org`),
+    `city_name` = VALUES(`city_name`),
+    `area_name` = VALUES(`area_name`),
+    `address` = VALUES(`address`),
+    `id_card_front_url` = VALUES(`id_card_front_url`),
+    `id_card_back_url` = VALUES(`id_card_back_url`),
+    `description` = VALUES(`description`),
+    `status` = VALUES(`status`),
+    `reviewer_id` = VALUES(`reviewer_id`),
+    `review_time` = VALUES(`review_time`),
+    `review_remark` = VALUES(`review_remark`),
+    `deleted` = VALUES(`deleted`),
+    `update_time` = VALUES(`update_time`);
+
+INSERT INTO `user_qualification_image`
+(`id`, `qualification_id`, `image_url`, `sort_no`, `create_time`)
+VALUES
+    (2101, 2001, 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/qualification/alice-proof-1.jpg', 1, '2026-03-25 08:10:00'),
+    (2102, 2001, 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/qualification/alice-proof-2.jpg', 2, '2026-03-25 08:11:00'),
+    (2103, 2002, 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/qualification/bob-proof-1.jpg', 1, '2026-03-29 10:05:00'),
+    (2104, 2003, 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/qualification/carol-proof-1.jpg', 1, '2026-03-28 09:35:00'),
+    (2105, 2004, 'https://graduation-project-wang.oss-cn-beijing.aliyuncs.com/mock/qualification/erin-proof-1.jpg', 1, '2026-03-30 09:05:00')
+ON DUPLICATE KEY UPDATE
+    `image_url` = VALUES(`image_url`),
+    `sort_no` = VALUES(`sort_no`);
+
+INSERT INTO `user_qualification_review`
+(`id`, `qualification_id`, `reviewer_id`, `review_result`, `review_remark`, `create_time`)
+VALUES
+    (2201, 2001, 1, 1, '身份与资格证明完整，审核通过', '2026-03-25 08:45:00'),
+    (2202, 2003, 1, 2, '资格证明不够清晰，请重新上传原件照片', '2026-03-28 11:20:00')
+ON DUPLICATE KEY UPDATE
+    `review_result` = VALUES(`review_result`),
+    `review_remark` = VALUES(`review_remark`);
 SET FOREIGN_KEY_CHECKS = 1;

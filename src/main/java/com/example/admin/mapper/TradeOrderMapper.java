@@ -29,7 +29,19 @@ public interface TradeOrderMapper {
 
     long countAll();
 
+    long countByPublisher(@Param("currentUserId") Long currentUserId,
+                          @Param("admin") boolean admin);
+
+    long countByReceiver(@Param("currentUserId") Long currentUserId,
+                         @Param("admin") boolean admin);
+
     BigDecimal sumCompletedAmount();
+
+    BigDecimal sumCompletedAmountByPublisher(@Param("currentUserId") Long currentUserId,
+                                             @Param("admin") boolean admin);
+
+    BigDecimal sumCompletedAmountByReceiver(@Param("currentUserId") Long currentUserId,
+                                            @Param("admin") boolean admin);
 
     int insertTradeOrder(TradeOrder tradeOrder);
 

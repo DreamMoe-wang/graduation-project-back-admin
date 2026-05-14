@@ -56,6 +56,8 @@ public class SecurityConfig {
                 .antMatchers("/ws/**").permitAll()
                 .antMatchers(HttpMethod.GET, "/user/profile/current").authenticated()
                 .antMatchers(HttpMethod.PUT, "/user/profile/current").authenticated()
+                .antMatchers(HttpMethod.GET, "/qualification/current").authenticated()
+                .antMatchers("/qualification/*/approve", "/qualification/*/reject").hasAuthority("qualification:review")
                 .antMatchers(HttpMethod.GET, "/notice/public/**").authenticated()
                 .antMatchers("/trade/publish/*/approve", "/trade/publish/*/reject").hasAuthority("trade:review")
                 .antMatchers(HttpMethod.GET, "/menu/page", "/menu/tree", "/menu/*").hasAuthority("menu:view")

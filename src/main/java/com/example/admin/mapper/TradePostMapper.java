@@ -36,4 +36,6 @@ public interface TradePostMapper {
     int updateTradePost(TradePost tradePost);
 
     int deleteById(@Param("id") Long id);
+
+    List<String> selectApprovedCategoryNames();
 }

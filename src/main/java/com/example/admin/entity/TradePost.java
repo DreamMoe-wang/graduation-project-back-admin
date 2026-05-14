@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 发布主表实体
+ * 交易发布实体
  */
 @Data
 public class TradePost implements Serializable {
@@ -37,6 +37,10 @@ public class TradePost implements Serializable {
 
     private String address;
 
+    private Double longitude;
+
+    private Double latitude;
+
     private String contactName;
 
     private String contactPhone;
@@ -52,6 +56,8 @@ public class TradePost implements Serializable {
     private LocalDateTime publishTime;
 
     private LocalDateTime offShelfTime;
+
+    private String categoryNamesText;
 
     @TableLogic
     private Integer deleted;

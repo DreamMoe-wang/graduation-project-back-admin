@@ -7,13 +7,19 @@ import com.example.admin.common.event.EventPublisher;
 import com.example.admin.dto.TradeQueryDTO;
 import com.example.admin.dto.TradeReviewDTO;
 import com.example.admin.dto.TradeSaveDTO;
+import com.example.admin.entity.TradeCategory;
 import com.example.admin.entity.TradeOrder;
+import com.example.admin.entity.TradePostCategory;
 import com.example.admin.entity.TradePost;
 import com.example.admin.entity.TradePostImage;
 import com.example.admin.entity.TradePostReview;
 import com.example.admin.entity.User;
 import com.example.admin.entity.UserProfile;
+import com.example.admin.entity.Qualification;
+import com.example.admin.mapper.QualificationMapper;
+import com.example.admin.mapper.TradeCategoryMapper;
 import com.example.admin.mapper.TradeOrderMapper;
+import com.example.admin.mapper.TradePostCategoryMapper;
 import com.example.admin.mapper.TradePostImageMapper;
 import com.example.admin.mapper.TradePostMapper;
 import com.example.admin.mapper.TradePostReviewMapper;
@@ -21,6 +27,7 @@ import com.example.admin.mapper.UserMapper;
 import com.example.admin.mapper.UserProfileMapper;
 import com.example.admin.security.SecurityUtils;
 import com.example.admin.service.TradeService;
+import com.example.admin.vo.TradeCategoryVO;
 import com.example.admin.vo.TradeOrderStatsVO;
 import com.example.admin.vo.TradeOrderVO;
 import com.example.admin.vo.TradeVO;
@@ -52,7 +59,7 @@ public class TradeServiceImpl implements TradeService {
     private static final int PAY_STATUS_PAID = 1;
     private static final int PAY_STATUS_REFUNDED = 2;
     private static final int PAY_STATUS_SETTLED = 3;
-    private static final BigDecimal DEFAULT_WALLET_BALANCE = new BigDecimal("1000.00");
+    private static final BigDecimal DEFAULT_WALLET_BALANCE = new BigDecimal("100000.00");
 
     @Resource
     private TradePostMapper tradePostMapper;
@@ -71,6 +78,15 @@ public class TradeServiceImpl implements TradeService {
 
     @Resource
     private TradePostImageMapper tradePostImageMapper;
+
+    @Resource
+    private TradeCategoryMapper tradeCategoryMapper;
+
+    @Resource
+    private TradePostCategoryMapper tradePostCategoryMapper;
+
+    @Resource
+    private QualificationMapper qualificationMapper;
 
     @Resource
     private EventPublisher eventPublisher;
@@ -148,6 +164,7 @@ public class TradeServiceImpl implements TradeService {
         boolean success = tradePostMapper.insertTradePost(tradePost) > 0;
         if (success) {
             saveTradePostImages(tradePost.getId(), tradeSaveDTO.getImageUrls());
+            saveTradePostCategories(tradePost.getId(), tradeSaveDTO.getCategoryNames());
             eventPublisher.publish("trade.post.created", tradePost.getPostNo());
         }
         return success;
@@ -167,6 +184,7 @@ public class TradeServiceImpl implements TradeService {
         boolean success = tradePostMapper.updateTradePost(tradePost) > 0;
         if (success) {
             saveTradePostImages(tradePost.getId(), tradeSaveDTO.getImageUrls());
+            saveTradePostCategories(tradePost.getId(), tradeSaveDTO.getCategoryNames());
             eventPublisher.publish("trade.post.updated", tradePost.getPostNo());
         }
         return success;
@@ -180,6 +198,7 @@ public class TradeServiceImpl implements TradeService {
         boolean success = tradePostMapper.deleteById(id) > 0;
         if (success) {
             tradePostImageMapper.deleteByPostId(id);
+            tradePostCategoryMapper.deleteByPostId(id);
             eventPublisher.publish("trade.post.deleted", id);
         }
         return success;
@@ -226,9 +245,21 @@ public class TradeServiceImpl implements TradeService {
     }
 
     @Override
+    public List<TradeCategoryVO> getAvailableTradeCategories() {
+        return tradeCategoryMapper.selectEnabledList().stream()
+                .map(item -> TradeCategoryVO.builder()
+                        .id(item.getId())
+                        .categoryName(item.getCategoryName())
+                        .requiresQualification(item.getRequiresQualification() != null && item.getRequiresQualification() == 1)
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public boolean receiveTradePost(Long postId) {
         Long currentUserId = currentUserId();
         TradePost tradePost = getTradePostById(postId);
+        assertQualifiedReceiver(currentUserId, tradePost);
         if (tradePost.getStatus() == null || tradePost.getStatus() != 3) {
             throw new RuntimeException("当前交易不可接取");
         }
@@ -238,7 +269,7 @@ public class TradeServiceImpl implements TradeService {
 
         TradeOrder latestOrder = tradeOrderMapper.selectLatestByPostId(postId);
         TradeOrder order;
-        boolean createOrder = latestOrder == null || latestOrder.getStatus() == null || latestOrder.getStatus() == 3;
+        boolean createOrder = latestOrder == null || latestOrder.getStatus() == null || latestOrder.getStatus() == 4;
         if (createOrder) {
             order = new TradeOrder();
             order.setOrderNo(generateOrderNo());
@@ -247,7 +278,7 @@ public class TradeServiceImpl implements TradeService {
             order.setAmount(tradePost.getPrice());
             order.setRemark("用户从交易大全接取交易");
         } else {
-            if (latestOrder.getStatus() == 0 || latestOrder.getStatus() == 1 || latestOrder.getStatus() == 2) {
+            if (latestOrder.getStatus() == 0 || latestOrder.getStatus() == 1 || latestOrder.getStatus() == 2 || latestOrder.getStatus() == 3) {
                 throw new RuntimeException("当前交易已被接取");
             }
             order = latestOrder;
@@ -284,7 +315,7 @@ public class TradeServiceImpl implements TradeService {
                 .totalCount(Math.toIntExact(tradeOrderMapper.countPage(null, currentUserId, admin)))
                 .pendingCount(Math.toIntExact(tradeOrderMapper.countPage(0, currentUserId, admin)))
                 .progressCount(Math.toIntExact(tradeOrderMapper.countPage(1, currentUserId, admin)))
-                .successCount(Math.toIntExact(tradeOrderMapper.countPage(2, currentUserId, admin)))
+                .successCount(Math.toIntExact(tradeOrderMapper.countPage(3, currentUserId, admin)))
                 .build();
     }
 
@@ -317,6 +348,8 @@ public class TradeServiceImpl implements TradeService {
     public boolean receiveOrder(Long id) {
         Long currentUserId = currentUserId();
         TradeOrder order = getTradeOrderById(id);
+        TradePost qualificationTradePost = tradePostMapper.selectById(order.getPostId());
+        assertQualifiedReceiver(currentUserId, qualificationTradePost);
         if (order.getStatus() != 0) {
             throw new RuntimeException("当前订单状态不允许接单");
         }
@@ -351,14 +384,35 @@ public class TradeServiceImpl implements TradeService {
         assertOrderAccessible(order);
         Long currentUserId = currentUserId();
         if (!currentUserId.equals(order.getReceiverId())) {
-            throw new AccessDeniedException("仅接单方可完成订单");
+            throw new AccessDeniedException("Only receiver can submit completion");
         }
         if (order.getStatus() != 1) {
-            throw new RuntimeException("只有进行中的订单才能完成");
+            throw new RuntimeException("Only in-progress orders can be completed");
         }
 
         order.setStatus(2);
         order.setFinishTime(LocalDateTime.now());
+        boolean success = tradeOrderMapper.updateTradeOrder(order) > 0;
+        if (success) {
+            eventPublisher.publish("trade.order.receiver.completed", order.getOrderNo());
+        }
+        return success;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean confirmOrder(Long id) {
+        TradeOrder order = getTradeOrderById(id);
+        assertOrderAccessible(order);
+        Long currentUserId = currentUserId();
+        if (!currentUserId.equals(order.getPublisherId())) {
+            throw new AccessDeniedException("Only publisher can confirm completion");
+        }
+        if (order.getStatus() != 2) {
+            throw new RuntimeException("Order is not waiting for publisher confirmation");
+        }
+
+        order.setStatus(3);
         order.setPayStatus(isPaySettled(order.getPayStatus()) ? PAY_STATUS_SETTLED : PAY_STATUS_UNPAID);
         boolean updated = tradeOrderMapper.updateTradeOrder(order) > 0;
 
@@ -369,7 +423,7 @@ public class TradeServiceImpl implements TradeService {
             tradePostMapper.updateTradePost(tradePost);
         }
         if (updated) {
-            eventPublisher.publish("trade.order.completed", order.getOrderNo());
+            eventPublisher.publish("trade.order.confirmed.completed", order.getOrderNo());
         }
         return updated;
     }
@@ -382,15 +436,15 @@ public class TradeServiceImpl implements TradeService {
         Long currentUserId = currentUserId();
 
         if (!currentUserId.equals(order.getPublisherId())) {
-            throw new AccessDeniedException("仅发布方可执行支付");
+            throw new AccessDeniedException("Only publisher can pay order");
         }
 
-        if (order.getStatus() != 2) {
-            throw new RuntimeException("仅已完成待支付订单可支付");
+        if (order.getStatus() != 3) {
+            throw new RuntimeException("Only fully confirmed completed orders can be paid");
         }
 
         if (!isPayUnpaid(order.getPayStatus())) {
-            throw new RuntimeException("订单已支付或已结算，无需重复支付");
+            throw new RuntimeException("Order has already been paid or settled");
         }
 
         executeGatewayPay(order);
@@ -418,16 +472,16 @@ public class TradeServiceImpl implements TradeService {
         assertOrderAccessible(order);
         Long currentUserId = currentUserId();
         if (!currentUserId.equals(order.getReceiverId())) {
-            throw new AccessDeniedException("仅接单方可取消订单");
+            throw new AccessDeniedException("Only receiver can cancel order");
         }
-        if (order.getStatus() == 2) {
-            throw new RuntimeException("已完成订单不能取消");
+        if (order.getStatus() == 3) {
+            throw new RuntimeException("Completed orders cannot be cancelled");
         }
 
-        order.setStatus(3);
+        order.setStatus(4);
         order.setCancelTime(LocalDateTime.now());
         if (StrUtil.isBlank(order.getCancelReason())) {
-            order.setCancelReason("用户取消订单");
+            order.setCancelReason("Receiver cancelled order");
         }
         if (isPayPaid(order.getPayStatus()) || isPaySettled(order.getPayStatus())) {
             increaseWalletBalance(order.getPublisherId(), safeAmount(order.getAmount()));
@@ -472,10 +526,13 @@ public class TradeServiceImpl implements TradeService {
                 .location(buildLocation(tradePost))
                 .cityName(tradePost.getCityName())
                 .areaName(tradePost.getAreaName())
+                .longitude(tradePost.getLongitude())
+                .latitude(tradePost.getLatitude())
                 .status(formatTradeStatus(tradePost.getStatus()))
                 .createTime(formatDateTime(tradePost.getCreateTime()))
                 .description(tradePost.getContent())
                 .imageUrls(imageUrls)
+                .categoryNames(parseCategoryNames(tradePost.getCategoryNamesText()))
                 .build();
     }
 
@@ -504,6 +561,7 @@ public class TradeServiceImpl implements TradeService {
                 .payGateway(order.getPayGateway())
                 .payTime(formatDateTime(order.getPayTime()))
                 .imageUrls(imageUrls)
+                .categoryNames(parseCategoryNames(tradePost.getCategoryNamesText()))
                 .build();
     }
 
@@ -563,6 +621,53 @@ public class TradeServiceImpl implements TradeService {
         }
     }
 
+    private void assertQualifiedReceiver(Long userId, TradePost tradePost) {
+        if (isAdmin()) {
+            return;
+        }
+
+        List<String> requiredQualificationTypes = resolveRequiredQualificationTypes(tradePost);
+        if (requiredQualificationTypes.isEmpty()) {
+            return;
+        }
+
+        List<String> approvedQualificationTypes = qualificationMapper.selectApprovedQualificationTypesByUserId(userId);
+        List<String> normalizedApprovedTypes = approvedQualificationTypes == null
+                ? Collections.emptyList()
+                : approvedQualificationTypes.stream()
+                    .filter(StrUtil::isNotBlank)
+                    .map(item -> item.trim().toLowerCase(Locale.ROOT))
+                    .collect(Collectors.toList());
+
+        boolean matched = requiredQualificationTypes.stream()
+                .map(item -> item.toLowerCase(Locale.ROOT))
+                .anyMatch(normalizedApprovedTypes::contains);
+
+        if (!matched) {
+            throw new AccessDeniedException("Current trade category requires approved qualification before receiving orders");
+        }
+    }
+
+    private List<String> resolveRequiredQualificationTypes(TradePost tradePost) {
+        List<String> categoryNames = parseCategoryNames(tradePost == null ? null : tradePost.getCategoryNamesText());
+        if (categoryNames.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<String> requiredTypes = new ArrayList<>();
+        for (String categoryName : categoryNames) {
+            if (StrUtil.isBlank(categoryName)) {
+                continue;
+            }
+
+            TradeCategory category = tradeCategoryMapper.selectByName(categoryName.trim());
+            if (category != null && category.getRequiresQualification() != null && category.getRequiresQualification() == 1) {
+                requiredTypes.add(category.getCategoryName());
+            }
+        }
+        return requiredTypes;
+    }
+
     private void fillTradePost(TradePost tradePost, TradeSaveDTO tradeSaveDTO) {
         tradePost.setTitle(tradeSaveDTO.getTitle());
         tradePost.setContent(tradeSaveDTO.getDescription());
@@ -570,6 +675,8 @@ public class TradeServiceImpl implements TradeService {
         tradePost.setCityName(StrUtil.emptyToNull(StrUtil.trim(tradeSaveDTO.getCityName())));
         tradePost.setAreaName(StrUtil.emptyToNull(StrUtil.trim(tradeSaveDTO.getAreaName())));
         tradePost.setAddress(StrUtil.emptyToNull(StrUtil.trim(tradeSaveDTO.getLocation())));
+        tradePost.setLongitude(tradeSaveDTO.getLongitude());
+        tradePost.setLatitude(tradeSaveDTO.getLatitude());
         User publisher = tradePost.getPublisherId() == null ? null : userMapper.selectById(tradePost.getPublisherId());
 
         String resolvedContactName = StrUtil.firstNonBlank(
@@ -606,6 +713,54 @@ public class TradeServiceImpl implements TradeService {
             image.setSortNo(i + 1);
             tradePostImageMapper.insertTradePostImage(image);
         }
+    }
+
+    private void saveTradePostCategories(Long postId, List<String> categoryNames) {
+        if (postId == null) {
+            return;
+        }
+
+        tradePostCategoryMapper.deleteByPostId(postId);
+
+        List<String> normalizedNames = normalizeCategoryNames(categoryNames);
+        for (int i = 0; i < normalizedNames.size(); i++) {
+            String categoryName = normalizedNames.get(i);
+            TradeCategory category = tradeCategoryMapper.selectByName(categoryName);
+            if (category == null) {
+                category = new TradeCategory();
+                category.setCategoryName(categoryName);
+                category.setStatus(1);
+                tradeCategoryMapper.insertTradeCategory(category);
+            }
+
+            TradePostCategory relation = new TradePostCategory();
+            relation.setPostId(postId);
+            relation.setCategoryId(category.getId());
+            relation.setSortNo(i + 1);
+            tradePostCategoryMapper.insertTradePostCategory(relation);
+        }
+    }
+
+    private List<String> normalizeCategoryNames(List<String> categoryNames) {
+        if (categoryNames == null || categoryNames.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<String> normalized = new ArrayList<>();
+        for (String item : categoryNames) {
+            String value = StrUtil.emptyToNull(StrUtil.trim(item));
+            if (value != null && !normalized.contains(value)) {
+                normalized.add(value);
+            }
+        }
+        return normalized;
+    }
+
+    private List<String> parseCategoryNames(String categoryNamesText) {
+        if (StrUtil.isBlank(categoryNamesText)) {
+            return Collections.emptyList();
+        }
+        return StrUtil.splitTrim(categoryNamesText, ',');
     }
 
     private List<String> getTradePostImageUrls(Long postId) {
@@ -667,10 +822,32 @@ public class TradeServiceImpl implements TradeService {
         normalized.setMaxAmount(queryDTO.getMaxAmount());
         normalized.setStartDate(queryDTO.getStartDate());
         normalized.setEndDate(queryDTO.getEndDate());
+        normalized.setCategoryNames(queryDTO.getCategoryNames());
+        normalized.setUserCityName(queryDTO.getUserCityName());
+        normalized.setUserAreaName(queryDTO.getUserAreaName());
+        normalized.setUserLongitude(queryDTO.getUserLongitude());
+        normalized.setUserLatitude(queryDTO.getUserLatitude());
 
-        Integer status = parseTradeStatus(queryDTO.getStatus());
-        normalized.setStatus(status == null ? null : String.valueOf(status));
+        normalized.setStatus(queryDTO.getStatus());
+        normalized.setStatusList(resolveTradeStatusList(queryDTO.getStatus()));
         return normalized;
+    }
+
+    private List<Integer> resolveTradeStatusList(String status) {
+        if (StrUtil.isBlank(status) || "published".equalsIgnoreCase(status)) {
+            return Collections.singletonList(3);
+        }
+        if ("all".equalsIgnoreCase(status)) {
+            List<Integer> list = new ArrayList<>();
+            list.add(3);
+            list.add(5);
+            return list;
+        }
+        if ("completed".equalsIgnoreCase(status)) {
+            return Collections.singletonList(5);
+        }
+        Integer parsed = parseTradeStatus(status);
+        return parsed == null ? Collections.singletonList(3) : Collections.singletonList(parsed);
     }
 
     private long offset(Integer pageNum, Integer pageSize) {
@@ -785,12 +962,15 @@ public class TradeServiceImpl implements TradeService {
             case "progress":
             case "processing":
                 return 1;
+            case "confirm_pending":
+            case "confirming":
+                return 2;
             case "success":
             case "completed":
-                return 2;
+                return 3;
             case "cancel":
             case "cancelled":
-                return 3;
+                return 4;
             default:
                 if (StrUtil.isNumeric(value)) {
                     return Integer.parseInt(value);
@@ -809,8 +989,10 @@ public class TradeServiceImpl implements TradeService {
             case 1:
                 return "progress";
             case 2:
-                return "success";
+                return "confirm_pending";
             case 3:
+                return "success";
+            case 4:
                 return "cancel";
             default:
                 return String.valueOf(status);
@@ -823,15 +1005,17 @@ public class TradeServiceImpl implements TradeService {
         }
         switch (status) {
             case 0:
-                return "待确认";
+                return "???";
             case 1:
-                return "进行中";
+                return "???";
             case 2:
-                return "已完成";
+                return "??????";
             case 3:
-                return "已取消";
+                return "???";
+            case 4:
+                return "???";
             default:
-                return "未知状态";
+                return "????";
         }
     }
 

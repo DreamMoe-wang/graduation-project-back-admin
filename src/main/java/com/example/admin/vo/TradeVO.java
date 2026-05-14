@@ -41,6 +41,10 @@ public class TradeVO {
 
     private String areaName;
 
+    private Double longitude;
+
+    private Double latitude;
+
     private String status;
 
     private String createTime;
@@ -48,4 +52,6 @@ public class TradeVO {
     private String description;
 
     private List<String> imageUrls;
+
+    private List<String> categoryNames;
 }

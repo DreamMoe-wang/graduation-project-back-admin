@@ -13,6 +13,8 @@
         <result column="city_name" property="cityName"/>
         <result column="area_name" property="areaName"/>
         <result column="address" property="address"/>
+        <result column="longitude" property="longitude"/>
+        <result column="latitude" property="latitude"/>
         <result column="bio" property="bio"/>
         <result column="wallet_balance" property="walletBalance"/>
         <result column="create_time" property="createTime"/>
@@ -20,7 +22,7 @@
     </resultMap>
 
     <select id="selectByUserId" resultMap="UserProfileResultMap">
-        SELECT id, user_id, real_name, gender, birthday, city_name, area_name, address, bio, wallet_balance, create_time, update_time
+        SELECT id, user_id, real_name, gender, birthday, city_name, area_name, address, longitude, latitude, bio, wallet_balance, create_time, update_time
         FROM sys_user_profile
         WHERE user_id = #{userId}
         LIMIT 1
@@ -28,9 +30,9 @@
 
     <insert id="insertUserProfile" parameterType="com.example.admin.entity.UserProfile" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO sys_user_profile
-        (user_id, real_name, gender, birthday, city_name, area_name, address, bio, wallet_balance, create_time, update_time)
+        (user_id, real_name, gender, birthday, city_name, area_name, address, longitude, latitude, bio, wallet_balance, create_time, update_time)
         VALUES
-        (#{userId}, #{realName}, #{gender}, #{birthday}, #{cityName}, #{areaName}, #{address}, #{bio}, #{walletBalance}, NOW(), NOW())
+        (#{userId}, #{realName}, #{gender}, #{birthday}, #{cityName}, #{areaName}, #{address}, #{longitude}, #{latitude}, #{bio}, #{walletBalance}, NOW(), NOW())
     </insert>
 
     <update id="updateUserProfile" parameterType="com.example.admin.entity.UserProfile">
@@ -41,6 +43,8 @@
             city_name = #{cityName},
             area_name = #{areaName},
             address = #{address},
+            longitude = #{longitude},
+            latitude = #{latitude},
             bio = #{bio},
             update_time = NOW()
         WHERE id = #{id}

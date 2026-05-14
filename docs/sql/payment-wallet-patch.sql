@@ -73,7 +73,7 @@ WHERE `pay_status` IS NULL OR `pay_status` NOT IN (0, 1, 2, 3);
 SET @sql = IF(
     (SELECT COUNT(*) FROM information_schema.COLUMNS
      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user_profile' AND COLUMN_NAME = 'wallet_balance') = 0,
-    "ALTER TABLE `sys_user_profile` ADD COLUMN `wallet_balance` DECIMAL(12, 2) NOT NULL DEFAULT 1000.00 COMMENT '钱包余额' AFTER `bio`",
+    "ALTER TABLE `sys_user_profile` ADD COLUMN `wallet_balance` DECIMAL(12, 2) NOT NULL DEFAULT 100000.00 COMMENT '钱包余额' AFTER `bio`",
     "SELECT 'skip add wallet_balance'"
 );
 PREPARE stmt FROM @sql;
@@ -81,5 +81,5 @@ EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
 UPDATE `sys_user_profile`
-SET `wallet_balance` = 1000.00
+SET `wallet_balance` = 100000.00
 WHERE `wallet_balance` IS NULL;

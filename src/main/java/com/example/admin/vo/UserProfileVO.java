@@ -45,6 +45,10 @@ public class UserProfileVO {
 
     private String address;
 
+    private Double longitude;
+
+    private Double latitude;
+
     private String bio;
 
     private BigDecimal walletBalance;
