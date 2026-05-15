@@ -100,6 +100,12 @@ public class TradeServiceImpl implements TradeService {
     @Override
     public PageResult<List<TradeVO>> getPublishPage(TradeQueryDTO queryDTO) {
         TradeQueryDTO normalizedQuery = normalizeTradeQuery(queryDTO);
+        if (StrUtil.isBlank(normalizedQuery.getStatus())) {
+            normalizedQuery.setStatus("all");
+            normalizedQuery.setStatusList(null);
+        } else if ("all".equalsIgnoreCase(normalizedQuery.getStatus())) {
+            normalizedQuery.setStatusList(null);
+        }
         Long currentUserId = currentUserId();
         boolean admin = isAdmin();
         long total = tradePostMapper.countPage(normalizedQuery, currentUserId, !admin, false, false);

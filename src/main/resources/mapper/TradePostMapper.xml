@@ -67,6 +67,18 @@
         <if test="query != null and query.endDate != null and query.endDate != ''">
             AND create_time <![CDATA[<=]]> CONCAT(#{query.endDate}, ' 23:59:59')
         </if>
+        <if test="query != null and query.categoryNames != null and query.categoryNames.size() > 0">
+            AND EXISTS (
+                SELECT 1
+                FROM trade_post_category tpc_filter
+                INNER JOIN trade_category tc_filter ON tc_filter.id = tpc_filter.category_id
+                WHERE tpc_filter.post_id = trade_post.id
+                  AND tc_filter.category_name IN
+                  <foreach collection="query.categoryNames" item="categoryName" open="(" separator="," close=")">
+                      #{categoryName}
+                  </foreach>
+            )
+        </if>
         <if test="onlyOwner">
             AND publisher_id = #{publisherId}
         </if>
