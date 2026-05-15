@@ -19,6 +19,12 @@ public class TradeVO {
 
     private Long id;
 
+    private String postNo;
+
+    private Long orderId;
+
+    private String orderNo;
+
     private String title;
 
     private String clientName;
@@ -46,6 +52,16 @@ public class TradeVO {
     private Double latitude;
 
     private String status;
+
+    private String statusText;
+
+    private String flowStatus;
+
+    private String flowStatusText;
+
+    private String orderStatus;
+
+    private String orderStatusText;
 
     private String createTime;
 

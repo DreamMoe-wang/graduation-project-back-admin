@@ -419,7 +419,16 @@ public class TradeServiceImpl implements TradeService {
         }
 
         order.setStatus(3);
-        order.setPayStatus(isPaySettled(order.getPayStatus()) ? PAY_STATUS_SETTLED : PAY_STATUS_UNPAID);
+        executeGatewayPay(order);
+        BigDecimal amount = safeAmount(order.getAmount());
+        decreaseWalletBalance(order.getPublisherId(), amount);
+        increaseWalletBalance(order.getReceiverId(), amount);
+
+        order.setPayStatus(PAY_STATUS_SETTLED);
+        order.setPayGateway(resolvePaymentGateway());
+        order.setPayNo(generateMockPayNo(order.getId()));
+        order.setPayTime(LocalDateTime.now());
+        order.setRefundTime(null);
         boolean updated = tradeOrderMapper.updateTradeOrder(order) > 0;
 
         TradePost tradePost = tradePostMapper.selectById(order.getPostId());
@@ -518,9 +527,25 @@ public class TradeServiceImpl implements TradeService {
                 ? null
                 : userMapper.selectById(relatedOrder.getReceiverId());
         List<String> imageUrls = getTradePostImageUrls(tradePost.getId());
+        String tradeStatus = formatTradeStatus(tradePost.getStatus());
+        String tradeStatusText = formatTradeStatusText(tradePost.getStatus());
+        String orderStatus = relatedOrder == null ? null : formatOrderStatus(relatedOrder.getStatus());
+        String orderStatusText = relatedOrder == null ? null : formatOrderStatusText(relatedOrder.getStatus());
+        String effectiveFlowStatus = orderStatus;
+        String effectiveFlowStatusText = orderStatusText;
+        if (relatedOrder != null && relatedOrder.getStatus() != null && relatedOrder.getStatus() == 3 && isPayUnpaid(relatedOrder.getPayStatus())) {
+            effectiveFlowStatus = "pay_pending";
+            effectiveFlowStatusText = "待支付";
+        }
+        boolean useOrderStatus = relatedOrder != null && relatedOrder.getStatus() != null && relatedOrder.getStatus() != 4;
+        String flowStatus = useOrderStatus ? effectiveFlowStatus : tradeStatus;
+        String flowStatusText = useOrderStatus ? effectiveFlowStatusText : tradeStatusText;
 
         return TradeVO.builder()
                 .id(tradePost.getId())
+                .postNo(tradePost.getPostNo())
+                .orderId(relatedOrder == null ? null : relatedOrder.getId())
+                .orderNo(relatedOrder == null ? null : relatedOrder.getOrderNo())
                 .title(tradePost.getTitle())
                 .clientName(buildDisplayName(publisher))
                 .clientPhone(tradePost.getContactPhone())
@@ -534,7 +559,12 @@ public class TradeServiceImpl implements TradeService {
                 .areaName(tradePost.getAreaName())
                 .longitude(tradePost.getLongitude())
                 .latitude(tradePost.getLatitude())
-                .status(formatTradeStatus(tradePost.getStatus()))
+                .status(tradeStatus)
+                .statusText(tradeStatusText)
+                .flowStatus(flowStatus)
+                .flowStatusText(flowStatusText)
+                .orderStatus(orderStatus)
+                .orderStatusText(orderStatusText)
                 .createTime(formatDateTime(tradePost.getCreateTime()))
                 .description(tradePost.getContent())
                 .imageUrls(imageUrls)
@@ -957,6 +987,28 @@ public class TradeServiceImpl implements TradeService {
         }
     }
 
+    private String formatTradeStatusText(Integer status) {
+        if (status == null) {
+            return "";
+        }
+        switch (status) {
+            case 0:
+                return "草稿";
+            case 1:
+                return "审核中";
+            case 2:
+                return "驳回";
+            case 3:
+                return "发布中";
+            case 4:
+                return "进行中";
+            case 5:
+                return "已完成";
+            default:
+                return "未知状态";
+        }
+    }
+
     private Integer parseOrderStatus(String status) {
         if (StrUtil.isBlank(status)) {
             return null;
@@ -1011,17 +1063,17 @@ public class TradeServiceImpl implements TradeService {
         }
         switch (status) {
             case 0:
-                return "???";
+                return "待确认";
             case 1:
-                return "???";
+                return "进行中";
             case 2:
-                return "??????";
+                return "待委托方确认";
             case 3:
-                return "???";
+                return "已完成";
             case 4:
-                return "???";
+                return "已取消";
             default:
-                return "????";
+                return "未知状态";
         }
     }
 
